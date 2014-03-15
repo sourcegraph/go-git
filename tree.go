@@ -51,6 +51,14 @@ const (
 	FileModeTree     = 0040000
 )
 
+func (entry *TreeEntry) IsDir() bool {
+	return entry.Filemode == FileModeTree
+}
+
+func (entry *TreeEntry) IsFile() bool {
+	return entry.Filemode == FileModeBlob || entry.Filemode == FileModeBlobExec
+}
+
 // Parse tree information from the (uncompressed) raw
 // data from the tree object.
 func parseTreeData(data []byte) (*Tree, error) {
