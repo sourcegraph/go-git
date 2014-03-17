@@ -1,4 +1,3 @@
-// Copyright (c) 2013 Patrick Gundlach, speedata (Berlin, Germany)
 // Copyright 2014 The Gogs Authors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -19,12 +18,34 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-// Pure Go read access to a git repository.
 package git
 
-// Version information: ‹Major›.‹Minor›.‹Patchlevel›
-const (
-	VersionMajor      = 0
-	VersionMinor      = 0
-	VersionPatchlevel = 0
+import (
+	"testing"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
+
+func TestAllReferences(t *testing.T) {
+	Convey("Get all repository references", t, func() {
+		repo, err := OpenRepository("_testdata/testrepo.git")
+		So(err, ShouldBeNil)
+
+		refs, err := repo.AllReferences()
+		So(err, ShouldBeNil)
+		So(len(refs), ShouldBeGreaterThan, 0)
+
+		So(refs[0].Name, ShouldEqual, "master")
+	})
+}
+
+func TestCurrentReference(t *testing.T) {
+	Convey("Get Current repository references", t, func() {
+		repo, err := OpenRepository("_testdata/testrepo.git")
+		So(err, ShouldBeNil)
+
+		ref, err := repo.CurrentReference()
+		So(err, ShouldBeNil)
+		So(ref.Name, ShouldEqual, "master")
+	})
+}

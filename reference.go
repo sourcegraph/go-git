@@ -1,4 +1,5 @@
 // Copyright (c) 2013 Patrick Gundlach, speedata (Berlin, Germany)
+// Copyright 2014 The Gogs Authors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -18,7 +19,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package gogit
+package git
 
 import (
 	"errors"
@@ -26,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 type Reference struct {
@@ -34,6 +36,10 @@ type Reference struct {
 	dest       string
 	repository *Repository
 }
+
+var (
+	refRexp = regexp.MustCompile("ref: (.*)\n")
+)
 
 // not sure if this is needed...
 func (ref *Reference) resolveInfo() (*Reference, error) {
@@ -66,6 +72,47 @@ func (ref *Reference) resolveInfo() (*Reference, error) {
 	return nil, errors.New("Could not resolve info/refs")
 }
 
+// AllReferences returns all references of repository.
+func (repos *Repository) AllReferences() ([]*Reference, error) {
+	dirPath := filepath.Join(repos.Path, "refs/heads")
+	f, err := os.Open(dirPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	fis, err := f.Readdir(0)
+	if err != nil {
+		return nil, err
+	}
+
+	refs := make([]*Reference, len(fis))
+	for i, fi := range fis {
+		refs[i] = &Reference{
+			repository: repos,
+			Name:       fi.Name(),
+		}
+	}
+	return refs, nil
+}
+
+// CurrentReference returns current reference of repository.
+func (repos *Repository) CurrentReference() (*Reference, error) {
+	ref := &Reference{repository: repos}
+	f, err := ioutil.ReadFile(filepath.Join(repos.Path, "HEAD"))
+	if err != nil {
+		return nil, err
+	}
+
+	allMatches := refRexp.FindAllStringSubmatch(string(f), 1)
+	if allMatches == nil {
+		return nil, errors.New("Not yet implemented")
+	}
+	parts := strings.Split(allMatches[0][0], "/")
+	ref.Name = strings.TrimSpace(parts[len(parts)-1])
+	return ref, nil
+}
+
 // A typical Git repository consists of objects (path objects/ in the root directory)
 // and of references to HEAD, branches, tags and such.
 func (repos *Repository) LookupReference(name string) (*Reference, error) {
@@ -80,8 +127,8 @@ func (repos *Repository) LookupReference(name string) (*Reference, error) {
 	if err != nil {
 		return nil, err
 	}
-	rexp := regexp.MustCompile("ref: (.*)\n")
-	allMatches := rexp.FindAllStringSubmatch(string(f), 1)
+
+	allMatches := refRexp.FindAllStringSubmatch(string(f), 1)
 	if allMatches == nil {
 		// let's assume this is a SHA1
 		oid, err := NewOidFromString(string(f[:40]))
