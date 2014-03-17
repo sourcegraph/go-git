@@ -147,3 +147,30 @@ func (repos *Repository) LookupReference(name string) (*Reference, error) {
 func (r *Reference) Target() *Oid {
 	return r.Oid
 }
+
+func (r *Reference) LastCommit() (*Commit, error) {
+	return r.repository.LookupCommit(r.Oid)
+}
+
+func (r *Reference) CommitsBefore(oid *Oid, limit int) ([]*Commit, error) {
+	commit, err := r.repository.LookupCommit(r.Oid)
+	if err != nil {
+		return nil, err
+	}
+	var commits []*Commit
+	commits = append(commits, commit)
+	if commit.ParentCount() > 0 {
+		for i := 0; i < commit.ParentCount(); i++ {
+			subcommits, err := r.CommitsBefore(commit.Parent(i).Id(), 0)
+			if err != nil {
+				return nil, err
+			}
+			commits = append(commits, subcommits...)
+		}
+	}
+	return commits, nil
+}
+
+func (r *Reference) AllCommits() ([]*Commit, error) {
+	return r.CommitsBefore(r.Oid, 0)
+}
