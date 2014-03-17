@@ -20,7 +20,7 @@ Sample application to list the latest directory (recursively):
 package main
 
 import (
-    git "github.com/gogits/git"
+    "github.com/gogits/git"
     "log"
     "os"
     "path"
