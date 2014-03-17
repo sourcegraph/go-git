@@ -20,18 +20,36 @@
 
 package gogit
 
+import (
+	"os"
+	"time"
+)
+
 type Blob struct {
-	data []byte
+	data    []byte
+	modTime time.Time
+}
+
+func (b *Blob) ModTime() time.Time {
+	return b.modTime
 }
 
 // Find the blob object in the repository.
 func (repos *Repository) LookupBlob(oid *Oid) (*Blob, error) {
+	objpath := filepathFromSHA1(repos.Path, oid.String())
+	fInfo, err := os.Stat(objpath)
+	if err != nil {
+		return nil, err
+	}
+
 	_, _, data, err := repos.getRawObject(oid)
 	if err != nil {
 		return nil, err
 	}
 	b := new(Blob)
 	b.data = data
+	b.modTime = fInfo.ModTime()
+
 	return b, nil
 }
 
