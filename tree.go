@@ -25,6 +25,7 @@ import (
 	"bytes"
 	"errors"
 	"path"
+	"strings"
 )
 
 // A tree is a flat directory listing.
@@ -182,4 +183,27 @@ func (repos *Repository) LookupTree(oid *Oid) (*Tree, error) {
 	tree.Oid = oid
 	tree.repository = repos
 	return tree, nil
+}
+
+func (repos *Repository) SubTree(tree *Tree, rpath string) (*Tree, error) {
+	if rpath == "" {
+		return tree, nil
+	}
+	paths := strings.Split(rpath, "/")
+	var g = tree
+	var err error
+	for _, p := range paths {
+		s := g.EntryByName(p)
+		if s == nil {
+			return nil, nil
+		}
+		g, err = repos.LookupTree(s.Id)
+		if err != nil {
+			return nil, err
+		}
+		if g == nil {
+			return nil, nil
+		}
+	}
+	return g, nil
 }
