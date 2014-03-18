@@ -153,7 +153,7 @@ func (r *Reference) LastCommit() (*Commit, error) {
 }
 
 func (r *Reference) CommitsBefore(oid *Oid, limit int) ([]*Commit, error) {
-	commit, err := r.repository.LookupCommit(r.Oid)
+	commit, err := r.repository.LookupCommit(oid)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +161,11 @@ func (r *Reference) CommitsBefore(oid *Oid, limit int) ([]*Commit, error) {
 	commits = append(commits, commit)
 	if commit.ParentCount() > 0 {
 		for i := 0; i < commit.ParentCount(); i++ {
-			subcommits, err := r.CommitsBefore(commit.Parent(i).Id(), 0)
+			pId := commit.Parent(i).Id()
+			if pId.Equal(oid) {
+				continue
+			}
+			subcommits, err := r.CommitsBefore(pId, 0)
 			if err != nil {
 				return nil, err
 			}
