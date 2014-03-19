@@ -22,12 +22,14 @@
 package git
 
 import (
+	"container/list"
 	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 type Reference struct {
@@ -152,29 +154,79 @@ func (r *Reference) LastCommit() (*Commit, error) {
 	return r.repository.LookupCommit(r.Oid)
 }
 
-func (r *Reference) CommitsBefore(oid *Oid, limit int) ([]*Commit, error) {
+//var i = 0
+
+func (r *Reference) CommitsBefore(lock *sync.Mutex, l *list.List, parent *list.Element, oid *Oid, limit int) error {
 	commit, err := r.repository.LookupCommit(oid)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	var commits []*Commit
-	commits = append(commits, commit)
-	if commit.ParentCount() > 0 {
-		for i := 0; i < commit.ParentCount(); i++ {
-			pId := commit.Parent(i).Id()
-			if pId.Equal(oid) {
-				continue
+
+	var e *list.Element
+	if parent == nil {
+		//fmt.Println("no parent")
+		e = l.PushBack(commit)
+	} else {
+		var in = parent
+		//fmt.Println("parent is", parent.Value.(*Commit).Id(), parent.Value.(*Commit).Committer.When)
+		lock.Lock()
+		for {
+			if in == nil {
+				break
+			} else if in.Value.(*Commit).Id().Equal(commit.Id()) {
+				lock.Unlock()
+				//fmt.Println("here.....")
+				return nil
+			} else {
+				if in.Next() == nil {
+					break
+				}
+				if in.Value.(*Commit).Committer.When.Equal(commit.Committer.When) {
+					break
+				}
+
+				if in.Value.(*Commit).Committer.When.After(commit.Committer.When) &&
+					in.Next().Value.(*Commit).Committer.When.Before(commit.Committer.When) {
+					break
+				}
 			}
-			subcommits, err := r.CommitsBefore(pId, 0)
-			if err != nil {
-				return nil, err
-			}
-			commits = append(commits, subcommits...)
+			//fmt.Println("find ...", in.Value.(*Commit).Id(), in.Value.(*Commit).Committer.When)
+
+			in = in.Next()
+		}
+
+		e = l.InsertAfter(commit, in)
+		lock.Unlock()
+	}
+
+	//i = i + 1
+	//fmt.Println("+++", i, commit.Id(), commit.Committer.When, l.Len())
+
+	var pr = parent
+	if commit.ParentCount() > 1 {
+		pr = e
+	}
+
+	for i := 0; i < commit.ParentCount(); i++ {
+		/*if commit.ParentCount() > 1 {
+			fmt.Println("begin", i, "from", commit.Id())
+		}*/
+
+		err := r.CommitsBefore(lock, l, pr, commit.Parent(i).Id(), 0)
+		if err != nil {
+			return err
 		}
 	}
-	return commits, nil
+	//if commit.ParentCount() == 0 {
+	//	fmt.Println("at the end of", commit.Id())
+	//}
+
+	return nil
 }
 
-func (r *Reference) AllCommits() ([]*Commit, error) {
-	return r.CommitsBefore(r.Oid, 0)
+func (r *Reference) AllCommits() (*list.List, error) {
+	l := list.New()
+	lock := new(sync.Mutex)
+	err := r.CommitsBefore(lock, l, nil, r.Oid, 0)
+	return l, err
 }
