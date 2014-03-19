@@ -22,6 +22,7 @@
 package git
 
 import (
+	"errors"
 	"os"
 	"time"
 )
@@ -37,16 +38,34 @@ func (b *Blob) ModTime() time.Time {
 
 // Find the blob object in the repository.
 func (repos *Repository) LookupBlob(oid *Oid) (*Blob, error) {
-	objpath := filepathFromSHA1(repos.Path, oid.String())
-	fInfo, err := os.Stat(objpath)
-	if err != nil {
-		return nil, err
+	var (
+		data  []byte
+		err   error
+		fInfo os.FileInfo
+	)
+
+	// first we need to find out where the commit is stored
+	objPath := filepathFromSHA1(repos.Path, oid.String())
+	fInfo, err = os.Stat(objPath)
+	if os.IsNotExist(err) {
+		// doesn't exist, let's look if we find the object somewhere else
+		for _, indexfile := range repos.indexfiles {
+			if offset := indexfile.offsetValues[oid.Bytes]; offset != 0 {
+				fInfo, err = os.Stat(indexfile.packpath)
+				if os.IsNotExist(err) {
+					return nil, err
+				}
+				_, _, data, err = readObjectBytes(indexfile.packpath, offset, false)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if len(data) == 0 {
+			return nil, errors.New("Object not found")
+		}
 	}
 
-	_, _, data, err := repos.getRawObject(oid)
-	if err != nil {
-		return nil, err
-	}
 	b := new(Blob)
 	b.data = data
 	b.modTime = fInfo.ModTime()
