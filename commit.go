@@ -25,6 +25,7 @@ import (
 	"bytes"
 )
 
+// Commit represents a git commit.
 type Commit struct {
 	Author        *Signature
 	Committer     *Signature
