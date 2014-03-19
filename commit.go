@@ -23,6 +23,8 @@ package git
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 )
 
 // Commit represents a git commit.
@@ -158,4 +160,24 @@ func (repos *Repository) LookupCommit(oid *Oid) (*Commit, error) {
 	tree.repository = repos
 	ci.Tree = tree
 	return ci, nil
+}
+
+// get branch's last commit or a special commit by id string
+func (repo *Repository) GetCommit(branchname, commitid string) (*Commit, error) {
+	if commitid != "" {
+		oid, err := NewOidFromString(commitid)
+		if err != nil {
+			return nil, err
+		}
+		return repo.LookupCommit(oid)
+	}
+	if branchname == "" {
+		return nil, errors.New("no branch name and no commit id")
+	}
+
+	r, err := repo.LookupReference(fmt.Sprintf("refs/heads/%s", branchname))
+	if err != nil {
+		return nil, err
+	}
+	return r.LastCommit()
 }
