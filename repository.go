@@ -335,8 +335,29 @@ func readObjectBytes(path string, offset uint64, sizeonly bool) (ot ObjectType, 
 		pos = pos + 1
 	case 0x70:
 		// DELTA_ENCODED object w/ base BINARY_OBJID
-		log.Fatal("not implemented yet")
+		var oid *Oid
+		oid, err = NewOid(buf[pos : pos+20])
+		if err != nil {
+			return
+		}
+
+		//fmt.Println("xxx", oid.String(), "xxx")
+
+		pos = pos + 20
+
+		var f *idxFile
+		f, err = readIdxFile(path[0:len(path)-4] + "idx")
+		if err != nil {
+			return
+		}
+		var ok bool
+		if baseObjectOffset, ok = f.offsetValues[oid.Bytes]; !ok {
+			log.Fatal("not implemented yet")
+			err = errors.New("base object is not exist")
+			return
+		}
 	}
+
 	var base []byte
 	ot, _, base, err = readObjectBytes(path, baseObjectOffset, false)
 	if err != nil {
