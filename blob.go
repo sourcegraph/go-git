@@ -64,6 +64,11 @@ func (repos *Repository) LookupBlob(oid *Oid) (*Blob, error) {
 		if len(data) == 0 {
 			return nil, errors.New("Object not found")
 		}
+	} else {
+		_, _, data, err = readObjectFile(objPath, false)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	b := new(Blob)
