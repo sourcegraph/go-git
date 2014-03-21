@@ -154,8 +154,6 @@ func (r *Reference) LastCommit() (*Commit, error) {
 	return r.repository.LookupCommit(r.Oid)
 }
 
-//var i = 0
-
 func (r *Reference) CommitsBefore(lock *sync.Mutex, l *list.List, parent *list.Element, oid *Oid, limit int) error {
 	commit, err := r.repository.LookupCommit(oid)
 	if err != nil {
@@ -164,18 +162,15 @@ func (r *Reference) CommitsBefore(lock *sync.Mutex, l *list.List, parent *list.E
 
 	var e *list.Element
 	if parent == nil {
-		//fmt.Println("no parent")
 		e = l.PushBack(commit)
 	} else {
 		var in = parent
-		//fmt.Println("parent is", parent.Value.(*Commit).Id(), parent.Value.(*Commit).Committer.When)
 		lock.Lock()
 		for {
 			if in == nil {
 				break
 			} else if in.Value.(*Commit).Id().Equal(commit.Id()) {
 				lock.Unlock()
-				//fmt.Println("here.....")
 				return nil
 			} else {
 				if in.Next() == nil {
@@ -190,8 +185,6 @@ func (r *Reference) CommitsBefore(lock *sync.Mutex, l *list.List, parent *list.E
 					break
 				}
 			}
-			//fmt.Println("find ...", in.Value.(*Commit).Id(), in.Value.(*Commit).Committer.When)
-
 			in = in.Next()
 		}
 
@@ -199,27 +192,17 @@ func (r *Reference) CommitsBefore(lock *sync.Mutex, l *list.List, parent *list.E
 		lock.Unlock()
 	}
 
-	//i = i + 1
-	//fmt.Println("+++", i, commit.Id(), commit.Committer.When, l.Len())
-
 	var pr = parent
 	if commit.ParentCount() > 1 {
 		pr = e
 	}
 
 	for i := 0; i < commit.ParentCount(); i++ {
-		/*if commit.ParentCount() > 1 {
-			fmt.Println("begin", i, "from", commit.Id())
-		}*/
-
 		err := r.CommitsBefore(lock, l, pr, commit.Parent(i).Id(), 0)
 		if err != nil {
 			return err
 		}
 	}
-	//if commit.ParentCount() == 0 {
-	//	fmt.Println("at the end of", commit.Id())
-	//}
 
 	return nil
 }
