@@ -21,6 +21,7 @@
 package git
 
 import (
+	"fmt"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -28,14 +29,21 @@ import (
 
 func TestAllReferences(t *testing.T) {
 	Convey("Get all repository references", t, func() {
-		repo, err := OpenRepository("_testdata/testrepo.git")
+		//repo, err := OpenRepository("_testdata/testrepo.git")
+		repo, err := OpenRepository("/Users/lunny/git/gogs-repositories/xiaoxiao/test.git")
 		So(err, ShouldBeNil)
 
-		refs, err := repo.AllReferences()
+		refs, err := repo.AllReferencesMap()
+
 		So(err, ShouldBeNil)
 		So(len(refs), ShouldBeGreaterThan, 0)
 
-		So(refs[0].Name, ShouldEqual, "master")
+		So(refs["master"].BranchName(), ShouldEqual, "master")
+		So(refs["dev"].BranchName(), ShouldEqual, "dev")
+
+		for name, ref := range refs {
+			fmt.Println(name, ref)
+		}
 	})
 }
 

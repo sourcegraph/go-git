@@ -26,6 +26,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -37,6 +38,14 @@ type Reference struct {
 	Oid        *Oid
 	dest       string
 	repository *Repository
+}
+
+func (ref *Reference) BranchName() string {
+	parts := strings.Split(ref.Name, "/")
+	if len(parts) == 3 {
+		return parts[2]
+	}
+	return ""
 }
 
 var (
@@ -90,10 +99,38 @@ func (repos *Repository) AllReferences() ([]*Reference, error) {
 
 	refs := make([]*Reference, len(fis))
 	for i, fi := range fis {
-		refs[i] = &Reference{
-			repository: repos,
-			Name:       fi.Name(),
+		dest := path.Join("refs/heads", fi.Name())
+		ref, err := repos.LookupReference(dest)
+		if err != nil {
+			return nil, err
 		}
+		refs[i] = ref
+	}
+	return refs, nil
+}
+
+// AllReferences returns all references of repository.
+func (repos *Repository) AllReferencesMap() (map[string]*Reference, error) {
+	dirPath := filepath.Join(repos.Path, "refs/heads")
+	f, err := os.Open(dirPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	fis, err := f.Readdir(0)
+	if err != nil {
+		return nil, err
+	}
+
+	refs := make(map[string]*Reference)
+	for _, fi := range fis {
+		dest := path.Join("refs/heads", fi.Name())
+		ref, err := repos.LookupReference(dest)
+		if err != nil {
+			return nil, err
+		}
+		refs[fi.Name()] = ref
 	}
 	return refs, nil
 }
@@ -115,6 +152,15 @@ func (repos *Repository) CurrentReference() (*Reference, error) {
 	return ref, nil
 }
 
+func (ref *Reference) Reload() error {
+	ref2, err := ref.repository.LookupReference(ref.dest)
+	if err != nil {
+		return err
+	}
+	ref = ref2
+	return nil
+}
+
 // A typical Git repository consists of objects (path objects/ in the root directory)
 // and of references to HEAD, branches, tags and such.
 func (repos *Repository) LookupReference(name string) (*Reference, error) {
@@ -125,6 +171,7 @@ func (repos *Repository) LookupReference(name string) (*Reference, error) {
 	ref := new(Reference)
 	ref.repository = repos
 	ref.Name = name
+	ref.dest = name
 	f, err := ioutil.ReadFile(filepath.Join(repos.Path, name))
 	if err != nil {
 		return nil, err
@@ -152,6 +199,27 @@ func (r *Reference) Target() *Oid {
 
 func (r *Reference) LastCommit() (*Commit, error) {
 	return r.repository.LookupCommit(r.Oid)
+}
+
+// used only for single tree, (]
+func (r *Reference) CommitsBetween(last *Commit, before *Commit) *list.List {
+	l := list.New()
+	if last == nil || last.ParentCount() == 0 {
+		return l
+	}
+
+	cur := last
+	for {
+		if cur.Id().Equal(before.Id()) {
+			break
+		}
+		l.PushBack(cur)
+		if cur.ParentCount() == 0 {
+			break
+		}
+		cur = cur.Parent(0)
+	}
+	return l
 }
 
 func (r *Reference) CommitsBefore(lock *sync.Mutex, l *list.List, parent *list.Element, oid *Oid, limit int) error {
