@@ -40,12 +40,16 @@ type Reference struct {
 	repository *Repository
 }
 
-func (ref *Reference) BranchName() string {
-	parts := strings.Split(ref.Name, "/")
+func BranchName(name string) string {
+	parts := strings.Split(name, "/")
 	if len(parts) == 3 {
 		return parts[2]
 	}
 	return ""
+}
+
+func (ref *Reference) BranchName() string {
+	return BranchName(ref.Name)
 }
 
 var (
@@ -233,12 +237,12 @@ func (r *Reference) CommitsBefore(lock *sync.Mutex, l *list.List, parent *list.E
 		e = l.PushBack(commit)
 	} else {
 		var in = parent
-		lock.Lock()
+		//lock.Lock()
 		for {
 			if in == nil {
 				break
 			} else if in.Value.(*Commit).Id().Equal(commit.Id()) {
-				lock.Unlock()
+				//lock.Unlock()
 				return nil
 			} else {
 				if in.Next() == nil {
@@ -257,7 +261,7 @@ func (r *Reference) CommitsBefore(lock *sync.Mutex, l *list.List, parent *list.E
 		}
 
 		e = l.InsertAfter(commit, in)
-		lock.Unlock()
+		//lock.Unlock()
 	}
 
 	var pr = parent
