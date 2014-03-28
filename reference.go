@@ -205,83 +205,9 @@ func (r *Reference) LastCommit() (*Commit, error) {
 	return r.repository.LookupCommit(r.Oid)
 }
 
-// used only for single tree, (]
-func (r *Reference) CommitsBetween(last *Commit, before *Commit) *list.List {
-	l := list.New()
-	if last == nil || last.ParentCount() == 0 {
-		return l
-	}
-
-	cur := last
-	for {
-		if cur.Id().Equal(before.Id()) {
-			break
-		}
-		l.PushBack(cur)
-		if cur.ParentCount() == 0 {
-			break
-		}
-		cur = cur.Parent(0)
-	}
-	return l
-}
-
-func (r *Reference) CommitsBefore(lock *sync.Mutex, l *list.List, parent *list.Element, oid *Oid, limit int) error {
-	commit, err := r.repository.LookupCommit(oid)
-	if err != nil {
-		return err
-	}
-
-	var e *list.Element
-	if parent == nil {
-		e = l.PushBack(commit)
-	} else {
-		var in = parent
-		//lock.Lock()
-		for {
-			if in == nil {
-				break
-			} else if in.Value.(*Commit).Id().Equal(commit.Id()) {
-				//lock.Unlock()
-				return nil
-			} else {
-				if in.Next() == nil {
-					break
-				}
-				if in.Value.(*Commit).Committer.When.Equal(commit.Committer.When) {
-					break
-				}
-
-				if in.Value.(*Commit).Committer.When.After(commit.Committer.When) &&
-					in.Next().Value.(*Commit).Committer.When.Before(commit.Committer.When) {
-					break
-				}
-			}
-			in = in.Next()
-		}
-
-		e = l.InsertAfter(commit, in)
-		//lock.Unlock()
-	}
-
-	var pr = parent
-	if commit.ParentCount() > 1 {
-		pr = e
-	}
-
-	for i := 0; i < commit.ParentCount(); i++ {
-		err := r.CommitsBefore(lock, l, pr, commit.Parent(i).Id(), 0)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (r *Reference) AllCommits() (*list.List, error) {
 	l := list.New()
 	lock := new(sync.Mutex)
-	err := r.CommitsBefore(lock, l, nil, r.Oid, 0)
+	err := r.repository.commitsBefore(lock, l, nil, r.Oid, 0)
 	return l, err
 }
