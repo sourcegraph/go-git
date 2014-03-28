@@ -31,6 +31,8 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/Unknwon/com"
 )
 
 type Reference struct {
@@ -111,6 +113,11 @@ func (repos *Repository) AllReferences() ([]*Reference, error) {
 		refs[i] = ref
 	}
 	return refs, nil
+}
+
+func (repos *Repository) IsBranchExist(branchName string) bool {
+	branchPath := filepath.Join(repos.Path, "refs/heads", branchName)
+	return com.IsFile(branchPath)
 }
 
 // AllReferences returns all references of repository.
