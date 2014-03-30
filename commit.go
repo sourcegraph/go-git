@@ -23,7 +23,6 @@ package git
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 )
 
@@ -163,21 +162,18 @@ func (repos *Repository) LookupCommit(oid *Oid) (*Commit, error) {
 }
 
 // get branch's last commit or a special commit by id string
-func (repo *Repository) GetCommit(branchname, commitid string) (*Commit, error) {
-	if commitid != "" {
-		oid, err := NewOidFromString(commitid)
-		if err != nil {
-			return nil, err
-		}
-		return repo.LookupCommit(oid)
-	}
-	if branchname == "" {
-		return nil, errors.New("no branch name and no commit id")
-	}
-
-	r, err := repo.LookupReference(fmt.Sprintf("refs/heads/%s", branchname))
+func (repo *Repository) GetCommitOfBranch(branchName string) (*Commit, error) {
+	r, err := repo.LookupReference(fmt.Sprintf("refs/heads/%s", branchName))
 	if err != nil {
 		return nil, err
 	}
 	return r.LastCommit()
+}
+
+func (repo *Repository) GetCommit(commitId string) (*Commit, error) {
+	oid, err := NewOidFromString(commitId)
+	if err != nil {
+		return nil, err
+	}
+	return repo.LookupCommit(oid)
 }

@@ -32,8 +32,24 @@ type Oid struct {
 	Bytes SHA1
 }
 
+func IsSha1(sha1 string) bool {
+	if len(sha1) != 40 {
+		return false
+	}
+
+	_, err := hex.DecodeString(sha1)
+	if err != nil {
+		return false
+	}
+
+	return true
+}
+
 // Create a new Oid from a Sha1 string of length 40.
 func NewOidFromString(sha1 string) (*Oid, error) {
+	if len(sha1) != 40 {
+		return nil, fmt.Errorf("Length must be 40")
+	}
 	b, err := hex.DecodeString(sha1)
 	if err != nil {
 		return nil, err

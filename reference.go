@@ -174,33 +174,28 @@ func (ref *Reference) Reload() error {
 
 // A typical Git repository consists of objects (path objects/ in the root directory)
 // and of references to HEAD, branches, tags and such.
-func (repos *Repository) LookupReference(name string) (*Reference, error) {
+func (repos *Repository) LookupReference(refname string) (*Reference, error) {
 	// First we need to find out what's in the text file. It could be something like
 	//     ref: refs/heads/master
 	// or just a SHA1 such as
 	//     1337a1a1b0694887722f8bd0e541bd0f6567a471
 	ref := new(Reference)
 	ref.repository = repos
-	ref.Name = name
-	ref.dest = name
-	f, err := ioutil.ReadFile(filepath.Join(repos.Path, name))
+	ref.Name = refname
+	ref.dest = refname
+
+	var err error
+	sha1, err := repos.GetCommitIdOfRef(refname)
 	if err != nil {
 		return nil, err
 	}
 
-	allMatches := refRexp.FindAllStringSubmatch(string(f), 1)
-	if allMatches == nil {
-		// let's assume this is a SHA1
-		oid, err := NewOidFromString(string(f[:40]))
-		if err != nil {
-			return nil, err
-		}
-		ref.Oid = oid
-		return ref, nil
+	ref.Oid, err = NewOidFromString(sha1)
+	if err != nil {
+		return nil, err
 	}
-	// yes, it's "ref: something". Now let's lookup "something"
-	ref.dest = allMatches[0][1]
-	return repos.LookupReference(ref.dest)
+
+	return ref, nil
 }
 
 // For compatibility with git2go. Return Oid from referece (same as getting .Oid directly)

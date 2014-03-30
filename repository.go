@@ -387,7 +387,7 @@ func readObjectBytes(path string, offset uint64, sizeonly bool) (ot ObjectType, 
 func readObjectBytesF(path string, offset uint64, sizeonly bool) (ot ObjectType, length int64, data []byte, err error) {
 	offsetInt := int64(offset)
 	file, err := os.Open(path)
-	
+
 	if err != nil {
 		return
 	}
@@ -655,4 +655,29 @@ func (repos *Repository) ObjectSize(oid *Oid) (int64, error) {
 	}
 	_, length, _, err := readObjectFile(objpath, true)
 	return length, err
+}
+
+func (repos *Repository) GetCommitIdOfRef(refpath string) (string, error) {
+start:
+	f, err := ioutil.ReadFile(filepath.Join(repos.Path, refpath))
+	if err != nil {
+		return "", err
+	}
+
+	allMatches := refRexp.FindAllStringSubmatch(string(f), 1)
+	if allMatches == nil {
+		// let's assume this is a SHA1
+		sha1 := string(f[:40])
+		if !IsSha1(sha1) {
+			return "", fmt.Errorf("heads file wrong sha1 string %s", sha1)
+		}
+		return sha1, nil
+	}
+	// yes, it's "ref: something". Now let's lookup "something"
+	refpath = allMatches[0][1]
+	goto start
+}
+
+func (repos *Repository) GetCommitIdOfBranch(branchName string) (string, error) {
+	return repos.GetCommitIdOfRef("refs/heads/" + branchName)
 }
