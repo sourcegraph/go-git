@@ -161,13 +161,22 @@ func (repos *Repository) LookupCommit(oid *Oid) (*Commit, error) {
 	return ci, nil
 }
 
-// get branch's last commit or a special commit by id string
+// GetCommitOfBranch returns the commit corresponding to given branch by id string.
 func (repo *Repository) GetCommitOfBranch(branchName string) (*Commit, error) {
 	r, err := repo.LookupReference(fmt.Sprintf("refs/heads/%s", branchName))
 	if err != nil {
 		return nil, err
 	}
 	return r.LastCommit()
+}
+
+// GetCommitOfTag returns the commit corresponding to given tag by id string.
+func (repo *Repository) GetCommitOfTag(tagName string) (*Commit, error) {
+	t, err := repo.LookupTag(fmt.Sprintf("refs/tags/%s", tagName))
+	if err != nil {
+		return nil, err
+	}
+	return repo.LookupCommit(t.TargetId)
 }
 
 func (repo *Repository) GetCommit(commitId string) (*Commit, error) {

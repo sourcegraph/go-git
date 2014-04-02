@@ -24,6 +24,9 @@ package git
 import (
 	"bytes"
 	"errors"
+	"os"
+	"path"
+	"path/filepath"
 )
 
 // Who am I?
@@ -91,8 +94,42 @@ func parseTagData(data []byte) (*Tag, error) {
 	return tag, nil
 }
 
+// AllTags returns all tags of repository.
+func (repos *Repository) AllTags() ([]*Tag, error) {
+	dirPath := filepath.Join(repos.Path, "refs/tags")
+	f, err := os.Open(dirPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	fis, err := f.Readdir(0)
+	if err != nil {
+		return nil, err
+	}
+
+	tags := make([]*Tag, len(fis))
+	for i, fi := range fis {
+		dest := path.Join("refs/tags", fi.Name())
+		tag, err := repos.LookupTag(dest)
+		if err != nil {
+			return nil, err
+		}
+		tags[i] = tag
+	}
+	return tags, nil
+}
+
 // Find the tag object in the repository.
-func (repos *Repository) LookupTag(oid *Oid) (*Tag, error) {
+func (repos *Repository) LookupTag(tagName string) (*Tag, error) {
+	sha1, err := repos.GetCommitIdOfRef(tagName)
+	if err != nil {
+		return nil, err
+	}
+	oid, err := NewOidFromString(sha1)
+	if err != nil {
+		return nil, err
+	}
 	_, _, data, err := repos.getRawObject(oid)
 	if err != nil {
 		return nil, err

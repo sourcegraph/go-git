@@ -184,7 +184,6 @@ func (repos *Repository) LookupReference(refname string) (*Reference, error) {
 	ref.Name = refname
 	ref.dest = refname
 
-	var err error
 	sha1, err := repos.GetCommitIdOfRef(refname)
 	if err != nil {
 		return nil, err
