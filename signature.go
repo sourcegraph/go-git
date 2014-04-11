@@ -40,7 +40,7 @@ type Signature struct {
 // be used for author and committer.
 //
 // FIXME: include timezone!
-func newSignatureFromCommitline(line []byte) (*Signature, error) {
+func NewSignatureFromCommitline(line []byte) (*Signature, error) {
 	sig := new(Signature)
 	emailstart := bytes.IndexByte(line, '<')
 	sig.Name = string(line[:emailstart-1])

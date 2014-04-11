@@ -84,7 +84,7 @@ func parseTagData(data []byte) (*Tag, error) {
 	// 8 = "\ntagger "
 	pos += nlpos + 8
 	nlpos = bytes.IndexByte(data[pos:], '\n')
-	tag.Tagger, err = newSignatureFromCommitline(data[pos : pos+nlpos])
+	tag.Tagger, err = NewSignatureFromCommitline(data[pos : pos+nlpos])
 	if err != nil {
 		return nil, err
 	}

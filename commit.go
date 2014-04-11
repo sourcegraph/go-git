@@ -111,13 +111,13 @@ l:
 				}
 				commit.parents = append(commit.parents, oid)
 			case "author":
-				sig, err := newSignatureFromCommitline(line[spacepos+1:])
+				sig, err := NewSignatureFromCommitline(line[spacepos+1:])
 				if err != nil {
 					return nil, err
 				}
 				commit.Author = sig
 			case "committer":
-				sig, err := newSignatureFromCommitline(line[spacepos+1:])
+				sig, err := NewSignatureFromCommitline(line[spacepos+1:])
 				if err != nil {
 					return nil, err
 				}
