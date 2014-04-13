@@ -3,9 +3,11 @@ package git
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
-	"sync"
+
+	"github.com/gogits/cache"
 )
 
 // idx-file
@@ -17,9 +19,16 @@ type idxFile struct {
 }
 
 var (
-	objCommitCache = make(map[string]sha1)
-	mutex          sync.RWMutex
+	objCommitCache cache.Cache
 )
+
+func init() {
+	var err error
+	objCommitCache, err = cache.NewCache("memory", `{"interval":20}`)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
 
 // A Repository is the base of all other actions. If you need to lookup a
 // commit, tree or blob, you do it from here.

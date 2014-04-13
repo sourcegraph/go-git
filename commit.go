@@ -2,6 +2,7 @@ package git
 
 import (
 	"container/list"
+	"time"
 )
 
 // Commit represents a git commit.
@@ -82,22 +83,17 @@ func (c *Commit) CommitsByRange(page int) (*list.List, error) {
 }*/
 
 func (c *Commit) GetCommitOfRelPath(relPath string) (*Commit, error) {
-	var key = c.Id.String() + ";" + relPath
+	var key = c.Id.String() + relPath
 
-	mutex.RLock()
-	if v, ok := objCommitCache[key]; ok {
-		mutex.RUnlock()
-		return c.repo.getCommit(v)
+	if v := objCommitCache.Get(key); v != nil {
+		return c.repo.getCommit(v.(sha1))
 	}
-	mutex.RUnlock()
 
 	newc, err := c.repo.getCommitOfRelPath(c.Id, relPath)
 	if err != nil {
 		return nil, err
 	}
 
-	mutex.Lock()
-	defer mutex.Unlock()
-	objCommitCache[key] = newc.Id
+	objCommitCache.Put(key, newc.Id, int64(time.Hour))
 	return newc, nil
 }
