@@ -82,13 +82,10 @@ func (c *Commit) CommitsByRange(page int) (*list.List, error) {
 }*/
 
 func (c *Commit) GetCommitOfRelPath(relPath string) (*Commit, error) {
-	entry, err := c.GetTreeEntryByPath(relPath)
-	if err != nil {
-		return nil, err
-	}
+	var key = c.Id.String() + ";" + relPath
 
 	mutex.RLock()
-	if v, ok := objCommitCache[entry.Id]; ok {
+	if v, ok := objCommitCache[key]; ok {
 		mutex.RUnlock()
 		return c.repo.getCommit(v)
 	}
@@ -101,6 +98,6 @@ func (c *Commit) GetCommitOfRelPath(relPath string) (*Commit, error) {
 
 	mutex.Lock()
 	defer mutex.Unlock()
-	objCommitCache[entry.Id] = newc.Id
+	objCommitCache[key] = newc.Id
 	return newc, nil
 }

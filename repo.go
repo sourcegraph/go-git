@@ -17,7 +17,7 @@ type idxFile struct {
 }
 
 var (
-	objCommitCache = make(map[sha1]sha1)
+	objCommitCache = make(map[string]sha1)
 	mutex          sync.RWMutex
 )
 
@@ -28,8 +28,6 @@ type Repository struct {
 	indexfiles []*idxFile
 
 	commitCache map[sha1]*Commit
-	bolbCache   map[sha1]sha1
-	mutex       sync.RWMutex
 }
 
 // Open the repository at the given path.
