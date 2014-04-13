@@ -77,6 +77,30 @@ func (c *Commit) CommitsByRange(page int) (*list.List, error) {
 	return c.repo.commitsByRange(c.Id, page)
 }
 
-func (c *Commit) GetCommitOfRelPath(relPath string) (*Commit, error) {
+/*func (c *Commit) GetCommitOfRelPath(relPath string) (*Commit, error) {
 	return c.repo.getCommitOfRelPath(c.Id, relPath)
+}*/
+
+func (c *Commit) GetCommitOfRelPath(relPath string) (*Commit, error) {
+	entry, err := c.GetTreeEntryByPath(relPath)
+	if err != nil {
+		return nil, err
+	}
+
+	mutex.RLock()
+	if v, ok := objCommitCache[entry.Id]; ok {
+		mutex.RUnlock()
+		return c.repo.getCommit(v)
+	}
+	mutex.RUnlock()
+
+	newc, err := c.repo.getCommitOfRelPath(c.Id, relPath)
+	if err != nil {
+		return nil, err
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
+	objCommitCache[entry.Id] = newc.Id
+	return newc, nil
 }

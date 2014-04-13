@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 // idx-file
@@ -15,6 +16,11 @@ type idxFile struct {
 	offsetValues map[sha1]uint64
 }
 
+var (
+	objCommitCache = make(map[sha1]sha1)
+	mutex          sync.RWMutex
+)
+
 // A Repository is the base of all other actions. If you need to lookup a
 // commit, tree or blob, you do it from here.
 type Repository struct {
@@ -22,6 +28,8 @@ type Repository struct {
 	indexfiles []*idxFile
 
 	commitCache map[sha1]*Commit
+	bolbCache   map[sha1]sha1
+	mutex       sync.RWMutex
 }
 
 // Open the repository at the given path.
