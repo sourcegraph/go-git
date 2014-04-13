@@ -1,81 +1,14 @@
-// Copyright (c) 2013 Patrick Gundlach, speedata (Berlin, Germany)
-// Copyright 2014 The Gogs Authors.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-
 package git
 
 import (
 	"bytes"
 	"compress/zlib"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 )
-
-// A Repository is the base of all other actions. If you need to lookup a
-// commit, tree or blob, you do it from here.
-type Repository struct {
-	Path       string
-	indexfiles []*idxFile
-}
-
-type SHA1 [20]byte
-
-// Who am I?
-type ObjectType int
-
-const (
-	ObjectCommit ObjectType = 0x10
-	ObjectTree   ObjectType = 0x20
-	ObjectBlob   ObjectType = 0x30
-	ObjectTag    ObjectType = 0x40
-)
-
-func (t ObjectType) String() string {
-	switch t {
-	case ObjectCommit:
-		return "Commit"
-	case ObjectTree:
-		return "Tree"
-	case ObjectBlob:
-		return "Blob"
-	default:
-		return ""
-	}
-}
-
-type Object struct {
-	Type ObjectType
-	Oid  *Oid
-}
-
-// idx-file
-type idxFile struct {
-	indexpath    string
-	packpath     string
-	packversion  uint32
-	offsetValues map[SHA1]uint64
-}
 
 func readIdxFile(path string) (*idxFile, error) {
 	ifile := &idxFile{}
@@ -97,7 +30,7 @@ func readIdxFile(path string) (*idxFile, error) {
 		pos += 4
 	}
 	numObjects := int(fanout[255])
-	ids := make([]SHA1, numObjects)
+	ids := make([]sha1, numObjects)
 
 	for i := 0; i < numObjects; i++ {
 		for j := 0; j < 20; j++ {
@@ -118,7 +51,7 @@ func readIdxFile(path string) (*idxFile, error) {
 			pos = pos + 8
 		}
 	}
-	ifile.offsetValues = make(map[SHA1]uint64, numObjects)
+	ifile.offsetValues = make(map[sha1]uint64, numObjects)
 	pos = 258*4 + 24*numObjects
 	for i := 0; i < numObjects; i++ {
 		offset := uint32(idx[pos])<<24 + uint32(idx[pos+1])<<16 + uint32(idx[pos+2])<<8 + uint32(idx[pos+3])
@@ -335,13 +268,13 @@ func readObjectBytes(path string, offset uint64, sizeonly bool) (ot ObjectType, 
 		pos = pos + 1
 	case 0x70:
 		// DELTA_ENCODED object w/ base BINARY_OBJID
-		var oid *Oid
-		oid, err = NewOid(buf[pos : pos+20])
+		var id sha1
+		id, err = NewId(buf[pos : pos+20])
 		if err != nil {
 			return
 		}
 
-		//fmt.Println("xxx", oid.String(), "xxx")
+		//fmt.Println("xxx", id.String(), "xxx")
 
 		pos = pos + 20
 
@@ -351,7 +284,7 @@ func readObjectBytes(path string, offset uint64, sizeonly bool) (ot ObjectType, 
 			return
 		}
 		var ok bool
-		if baseObjectOffset, ok = f.offsetValues[oid.Bytes]; !ok {
+		if baseObjectOffset, ok = f.offsetValues[id]; !ok {
 			log.Fatal("not implemented yet")
 			err = errors.New("base object is not exist")
 			return
@@ -439,13 +372,13 @@ func readObjectBytesF(path string, offset uint64, sizeonly bool) (ot ObjectType,
 		pos = pos + 1
 	case 0x70:
 		// DELTA_ENCODED object w/ base BINARY_OBJID
-		var oid *Oid
-		oid, err = NewOid(buf[pos : pos+20])
+		var id sha1
+		id, err = NewId(buf[pos : pos+20])
 		if err != nil {
 			return
 		}
 
-		//fmt.Println("xxx", oid.String(), "xxx")
+		//fmt.Println("xxx", id.String(), "xxx")
 
 		pos = pos + 20
 
@@ -455,7 +388,7 @@ func readObjectBytesF(path string, offset uint64, sizeonly bool) (ot ObjectType,
 			return
 		}
 		var ok bool
-		if baseObjectOffset, ok = f.offsetValues[oid.Bytes]; !ok {
+		if baseObjectOffset, ok = f.offsetValues[id]; !ok {
 			log.Fatal("not implemented yet")
 			err = errors.New("base object is not exist")
 			return
@@ -576,108 +509,4 @@ func readObjectFile(path string, sizeonly bool) (ot ObjectType, length int64, da
 	}
 	data = b[objstart : objstart+length]
 	return
-}
-
-func (repos *Repository) getRawObject(oid *Oid) (ObjectType, int64, []byte, error) {
-	// first we need to find out where the commit is stored
-	objpath := filepathFromSHA1(repos.Path, oid.String())
-	_, err := os.Stat(objpath)
-	if os.IsNotExist(err) {
-		// doesn't exist, let's look if we find the object somewhere else
-		for _, indexfile := range repos.indexfiles {
-			if offset := indexfile.offsetValues[oid.Bytes]; offset != 0 {
-				return readObjectBytes(indexfile.packpath, offset, false)
-			}
-		}
-		return 0, 0, nil, errors.New(fmt.Sprintf("Object not found %s", oid.String()))
-	}
-	return readObjectFile(objpath, false)
-}
-
-// Open the repository at the given path.
-func OpenRepository(path string) (*Repository, error) {
-	root := new(Repository)
-	path, err := filepath.Abs(path)
-	if err != nil {
-		return nil, err
-	}
-	root.Path = path
-	fm, err := os.Stat(path)
-	if err != nil {
-		return nil, err
-	}
-	if !fm.IsDir() {
-		return nil, errors.New(fmt.Sprintf("%q is not a directory."))
-	}
-
-	indexfiles, err := filepath.Glob(filepath.Join(path, "objects/pack/*idx"))
-	if err != nil {
-		return nil, err
-	}
-	root.indexfiles = make([]*idxFile, len(indexfiles))
-	for i, indexfile := range indexfiles {
-		idx, err := readIdxFile(indexfile)
-		if err != nil {
-			return nil, err
-		}
-		root.indexfiles[i] = idx
-	}
-
-	return root, nil
-}
-
-// Get the type of an object.
-func (repos *Repository) Type(oid *Oid) (ObjectType, error) {
-	objtype, _, _, err := repos.getRawObject(oid)
-	if err != nil {
-		return 0, err
-	}
-	return objtype, nil
-}
-
-// Get (inflated) size of an object.
-func (repos *Repository) ObjectSize(oid *Oid) (int64, error) {
-
-	// todo: this is mostly the same as getRawObject -> merge
-	// difference is the boolean in readObjectBytes and readObjectFile
-	objpath := filepathFromSHA1(repos.Path, oid.String())
-	_, err := os.Stat(objpath)
-	if os.IsNotExist(err) {
-		// doesn't exist, let's look if we find the object somewhere else
-		for _, indexfile := range repos.indexfiles {
-			if offset := indexfile.offsetValues[oid.Bytes]; offset != 0 {
-				_, length, _, err := readObjectBytes(indexfile.packpath, offset, true)
-				return length, err
-			}
-		}
-
-		return 0, errors.New("Object not found")
-	}
-	_, length, _, err := readObjectFile(objpath, true)
-	return length, err
-}
-
-func (repos *Repository) GetCommitIdOfRef(refpath string) (string, error) {
-start:
-	f, err := ioutil.ReadFile(filepath.Join(repos.Path, refpath))
-	if err != nil {
-		return "", err
-	}
-
-	allMatches := refRexp.FindAllStringSubmatch(string(f), 1)
-	if allMatches == nil {
-		// let's assume this is a SHA1
-		sha1 := string(f[:40])
-		if !IsSha1(sha1) {
-			return "", fmt.Errorf("heads file wrong sha1 string %s", sha1)
-		}
-		return sha1, nil
-	}
-	// yes, it's "ref: something". Now let's lookup "something"
-	refpath = allMatches[0][1]
-	goto start
-}
-
-func (repos *Repository) GetCommitIdOfBranch(branchName string) (string, error) {
-	return repos.GetCommitIdOfRef("refs/heads/" + branchName)
 }
