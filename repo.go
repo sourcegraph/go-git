@@ -3,11 +3,8 @@ package git
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
-
-	"github.com/gogits/cache"
 )
 
 // idx-file
@@ -16,18 +13,6 @@ type idxFile struct {
 	packpath     string
 	packversion  uint32
 	offsetValues map[sha1]uint64
-}
-
-var (
-	objCommitCache cache.Cache
-)
-
-func init() {
-	var err error
-	objCommitCache, err = cache.NewCache("memory", `{"interval":20}`)
-	if err != nil {
-		log.Fatal(err)
-	}
 }
 
 // A Repository is the base of all other actions. If you need to lookup a

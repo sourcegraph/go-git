@@ -2,7 +2,6 @@ package git
 
 import (
 	"container/list"
-	"time"
 )
 
 // Commit represents a git commit.
@@ -78,22 +77,6 @@ func (c *Commit) CommitsByRange(page int) (*list.List, error) {
 	return c.repo.commitsByRange(c.Id, page)
 }
 
-/*func (c *Commit) GetCommitOfRelPath(relPath string) (*Commit, error) {
-	return c.repo.getCommitOfRelPath(c.Id, relPath)
-}*/
-
 func (c *Commit) GetCommitOfRelPath(relPath string) (*Commit, error) {
-	var key = c.Id.String() + relPath
-
-	if v := objCommitCache.Get(key); v != nil {
-		return c.repo.getCommit(v.(sha1))
-	}
-
-	newc, err := c.repo.getCommitOfRelPath(c.Id, relPath)
-	if err != nil {
-		return nil, err
-	}
-
-	objCommitCache.Put(key, newc.Id, int64(time.Hour))
-	return newc, nil
+	return c.repo.getCommitOfRelPath(c.Id, relPath)
 }
