@@ -5,9 +5,13 @@ import (
 	"path/filepath"
 )
 
-func (repo *Repository) IsTagExist(tagName string) bool {
-	tagPath := filepath.Join(repo.Path, "refs/tags", tagName)
+func IsTagExist(repoPath, tagName string) bool {
+	tagPath := filepath.Join(repoPath, "refs/tags", tagName)
 	return isFile(tagPath)
+}
+
+func (repo *Repository) IsTagExist(tagName string) bool {
+	return IsTagExist(repo.Path, tagName)
 }
 
 // GetTags returns all tags of given repository.
