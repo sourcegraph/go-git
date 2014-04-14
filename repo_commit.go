@@ -31,6 +31,19 @@ func (repo *Repository) GetCommitIdOfBranch(branchName string) (string, error) {
 	return repo.getCommitIdOfRef("refs/heads/" + branchName)
 }
 
+func (repo *Repository) GetCommitOfTag(tagName string) (*Commit, error) {
+	commitId, err := repo.GetCommitIdOfTag(tagName)
+	if err != nil {
+		return nil, err
+	}
+
+	return repo.GetCommit(commitId)
+}
+
+func (repo *Repository) GetCommitIdOfTag(tagName string) (string, error) {
+	return repo.getCommitIdOfRef("refs/tags/" + tagName)
+}
+
 func (repo *Repository) getCommitIdOfRef(refpath string) (string, error) {
 start:
 	f, err := ioutil.ReadFile(filepath.Join(repo.Path, refpath))
