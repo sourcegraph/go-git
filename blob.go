@@ -7,24 +7,6 @@ type Blob struct {
 
 	data   []byte
 	dataed bool
-
-	size  int64
-	sized bool
-}
-
-func (b *Blob) Size() int64 {
-	if b.sized {
-		return b.size
-	}
-
-	size, err := b.ptree.repo.objectSize(b.Id)
-	if err != nil {
-		return 0
-	}
-
-	b.sized = true
-	b.size = size
-	return b.size
 }
 
 func (b *Blob) Data() ([]byte, error) {

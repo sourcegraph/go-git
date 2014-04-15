@@ -17,7 +17,7 @@ func (t *Tree) GetTreeEntryByPath(rpath string) (*TreeEntry, error) {
 	for i, name := range parts {
 		if i == len(parts)-1 {
 			for _, v := range tree.ListEntries() {
-				if v.Name == name {
+				if v.name == name {
 					return v, nil
 				}
 			}
@@ -38,7 +38,7 @@ func (t *Tree) GetBlobByPath(rpath string) (*Blob, error) {
 		return nil, err
 	}
 
-	if entry.IsFile() {
+	if !entry.IsDir() {
 		return entry.Blob(), nil
 	}
 

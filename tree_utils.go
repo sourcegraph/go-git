@@ -17,26 +17,26 @@ func parseTreeData(tree *Tree, data []byte) ([]*TreeEntry, error) {
 		spacepos := bytes.IndexByte(data[pos:], ' ')
 		switch string(data[pos : pos+spacepos]) {
 		case "100644":
-			entry.Mode = ModeBlob
+			entry.mode = ModeBlob
 			entry.Type = ObjectBlob
 		case "100755":
-			entry.Mode = ModeExec
+			entry.mode = ModeExec
 			entry.Type = ObjectBlob
 		case "120000":
-			entry.Mode = ModeSymlink
+			entry.mode = ModeSymlink
 			entry.Type = ObjectBlob
 		case "160000":
-			entry.Mode = ModeCommit
+			entry.mode = ModeCommit
 			entry.Type = ObjectCommit
 		case "40000":
-			entry.Mode = ModeTree
+			entry.mode = ModeTree
 			entry.Type = ObjectTree
 		default:
 			return nil, errors.New("unknown type: " + string(data[pos:pos+spacepos]))
 		}
 		pos += spacepos + 1
 		zero := bytes.IndexByte(data[pos:], 0)
-		entry.Name = string(data[pos : pos+zero])
+		entry.name = string(data[pos : pos+zero])
 		pos += zero + 1
 		id, err := NewId(data[pos : pos+20])
 		if err != nil {
