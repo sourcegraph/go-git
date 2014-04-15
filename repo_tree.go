@@ -1,8 +1,6 @@
 package git
 
-import (
-	"fmt"
-)
+import ()
 
 // Find the tree object in the repository.
 func (repo *Repository) GetTree(idStr string) (*Tree, error) {
@@ -18,7 +16,6 @@ func (repo *Repository) getTree(id sha1) (*Tree, error) {
 	if !isFile(treePath) {
 		m := false
 		for _, indexfile := range repo.indexfiles {
-			fmt.Println(indexfile.indexpath, indexfile.packpath)
 			if offset := indexfile.offsetValues[id]; offset != 0 {
 				m = true
 				break
