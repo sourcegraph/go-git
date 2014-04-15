@@ -1,8 +1,9 @@
 package git
 
 import (
-	"fmt"
+	"os"
 	"sort"
+	"time"
 )
 
 // There are only a few file modes in Git. They look like unix file modes, but they can only be
@@ -24,7 +25,7 @@ var sorter = []func(t1, t2 *TreeEntry) bool{
 		return t1.IsDir() && !t2.IsDir()
 	},
 	func(t1, t2 *TreeEntry) bool {
-		return t1.Name < t2.Name
+		return t1.name < t2.name
 	},
 }
 
@@ -51,41 +52,80 @@ func (bs Entries) Sort() {
 
 type TreeEntry struct {
 	Id   sha1
-	Name string
-	Mode EntryMode
 	Type ObjectType
+
+	mode EntryMode
+	name string
 
 	ptree *Tree
 
 	commit   *Commit
 	commited bool
+
+	size  int64
+	sized bool
+
+	modTime time.Time
+}
+
+func (te *TreeEntry) Name() string {
+	return te.name
+}
+
+func (te *TreeEntry) Size() int64 {
+	if te.IsDir() {
+		return 0
+	}
+
+	if te.sized {
+		return te.size
+	}
+
+	size, err := te.ptree.repo.objectSize(te.Id)
+	if err != nil {
+		return 0
+	}
+
+	te.sized = true
+	te.size = size
+	return te.size
+}
+
+func (te *TreeEntry) Mode() (mode os.FileMode) {
+
+	switch te.mode {
+	case ModeBlob, ModeExec, ModeSymlink:
+		mode = mode | 0644
+	default:
+		mode = mode | 0755
+	}
+
+	switch te.mode {
+	case ModeTree:
+		mode = mode | os.ModeDir
+	case ModeSymlink:
+		mode = mode | os.ModeSymlink
+	}
+
+	return
+}
+
+func (te *TreeEntry) ModTime() time.Time {
+	return time.Now()
+}
+
+func (te *TreeEntry) IsDir() bool {
+	return te.mode == ModeTree
+}
+
+func (te *TreeEntry) Sys() interface{} {
+	return nil
+}
+
+func (te *TreeEntry) EntryMode() EntryMode {
+	return te.mode
 }
 
 func (te *TreeEntry) Blob() *Blob {
 	return &Blob{TreeEntry: te}
-}
-
-func (te *TreeEntry) IsDir() bool {
-	return te.Mode == ModeTree
-}
-
-func (te *TreeEntry) IsFile() bool {
-	return te.Mode == ModeBlob || te.Mode == ModeExec
-}
-
-func (te *TreeEntry) Commit() (*Commit, error) {
-	if te.commited {
-		return te.commit, nil
-	}
-
-	g := te.ptree
-	t := te.ptree
-	for t != nil {
-		g = t
-		t = t.ptree
-	}
-
-	fmt.Println(g.Id.String())
-
-	return te.commit, nil
 }
