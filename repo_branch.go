@@ -3,6 +3,7 @@ package git
 import (
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func IsBranchExist(repoPath, branchName string) bool {
@@ -30,6 +31,9 @@ func (repo *Repository) GetBranches() ([]string, error) {
 
 	names := make([]string, 0, len(fis))
 	for _, fi := range fis {
+		if strings.Contains(fi.Name(), ".DS_Store") {
+			continue
+		}
 		names = append(names, fi.Name())
 	}
 
