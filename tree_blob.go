@@ -11,7 +11,6 @@ func (t *Tree) GetTreeEntryByPath(rpath string) (*TreeEntry, error) {
 	}
 
 	parts := strings.Split(path.Clean(rpath), "/")
-
 	var err error
 	tree := t
 	for i, name := range parts {

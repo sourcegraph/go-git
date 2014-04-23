@@ -15,9 +15,8 @@ func (repo *Repository) IsBranchExist(branchName string) bool {
 	return IsBranchExist(repo.Path, branchName)
 }
 
-// GetBranches returns all branches of given repository.
-func (repo *Repository) GetBranches() ([]string, error) {
-	dirPath := filepath.Join(repo.Path, "refs/heads")
+func (repo *Repository) readRefDir(prefix, relPath string) ([]string, error) {
+	dirPath := filepath.Join(repo.Path, prefix, relPath)
 	f, err := os.Open(dirPath)
 	if err != nil {
 		return nil, err
@@ -34,8 +33,24 @@ func (repo *Repository) GetBranches() ([]string, error) {
 		if strings.Contains(fi.Name(), ".DS_Store") {
 			continue
 		}
-		names = append(names, fi.Name())
+
+		relFileName := filepath.Join(relPath, fi.Name())
+		if fi.IsDir() {
+			subnames, err := repo.readRefDir(prefix, relFileName)
+			if err != nil {
+				return nil, err
+			}
+			names = append(names, subnames...)
+			continue
+		}
+
+		names = append(names, relFileName)
 	}
 
 	return names, nil
+}
+
+// GetBranches returns all branches of given repository.
+func (repo *Repository) GetBranches() ([]string, error) {
+	return repo.readRefDir("refs/heads", "")
 }
