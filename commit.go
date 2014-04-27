@@ -2,6 +2,7 @@ package git
 
 import (
 	"container/list"
+	"strings"
 )
 
 // Commit represents a git commit.
@@ -13,6 +14,10 @@ type Commit struct {
 	CommitMessage string
 
 	parents []sha1 // sha1 strings
+}
+
+func (c *Commit) Summary() string {
+	return strings.Split(c.CommitMessage, "\n")[0]
 }
 
 // Return the commit message. Same as retrieving CommitMessage directly.
