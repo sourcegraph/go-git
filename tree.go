@@ -96,9 +96,7 @@ func (t *Tree) ListEntries() Entries {
 		return t.entries
 	}
 
-	defer func() {
-		t.entriesParsed = true
-	}()
+	t.entriesParsed = true
 
 	_, _, data, err := t.repo.getRawObject(t.Id)
 	if err != nil {
