@@ -1,9 +1,15 @@
 package git
 
 import (
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
+)
+
+var (
+	ErrBranchExisted = errors.New("branch has existed")
 )
 
 func IsBranchExist(repoPath, branchName string) bool {
@@ -50,7 +56,20 @@ func (repo *Repository) readRefDir(prefix, relPath string) ([]string, error) {
 	return names, nil
 }
 
-// GetBranches returns all branches of given repository.
-func (repo *Repository) GetBranches() ([]string, error) {
-	return repo.readRefDir("refs/heads", "")
+func CreateBranch(repoPath, branchName string, id string) error {
+	branchPath := filepath.Join(repoPath, "refs/heads", branchName)
+	if isFile(branchPath) {
+		return ErrBranchExisted
+	}
+	f, err := os.Create(branchPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = io.WriteString(f, id)
+	return err
+}
+
+func (repo *Repository) CreateBranch(branchName string, id string) error {
+	return CreateBranch(repo.Path, branchName, id)
 }
