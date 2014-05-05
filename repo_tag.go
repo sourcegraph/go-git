@@ -35,3 +35,11 @@ func (repo *Repository) GetTags() ([]string, error) {
 
 	return names, nil
 }
+
+func CreateTag(repoPath, tagName, id string) error {
+	return CreateRef("tags", repoPath, tagName, id)
+}
+
+func (repo *Repository) CreateTag(tagName, id string) error {
+	return CreateTag(repo.Path, tagName, id)
+}

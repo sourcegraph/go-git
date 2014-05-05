@@ -42,8 +42,12 @@ func (repo *Repository) GetBranches() ([]string, error) {
 	return names, nil
 }
 
-func CreateBranch(repoPath, branchName string, id string) error {
-	branchPath := filepath.Join(repoPath, "refs/heads", branchName)
+func CreateBranch(repoPath, branchName, id string) error {
+	return CreateRef("heads", repoPath, branchName, id)
+}
+
+func CreateRef(head, repoPath, branchName, id string) error {
+	branchPath := filepath.Join(repoPath, "refs/"+head, branchName)
 	if isFile(branchPath) {
 		return ErrBranchExisted
 	}
@@ -56,6 +60,6 @@ func CreateBranch(repoPath, branchName string, id string) error {
 	return err
 }
 
-func (repo *Repository) CreateBranch(branchName string, id string) error {
+func (repo *Repository) CreateBranch(branchName, id string) error {
 	return CreateBranch(repo.Path, branchName, id)
 }
