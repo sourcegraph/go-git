@@ -17,3 +17,11 @@ func (repo *Repository) IsTagExist(tagName string) bool {
 func (repo *Repository) GetTags() ([]string, error) {
 	return repo.readRefDir("refs/tags", "")
 }
+
+func CreateTag(repoPath, tagName, id string) error {
+	return CreateRef("tags", repoPath, tagName, id)
+}
+
+func (repo *Repository) CreateTag(tagName, id string) error {
+	return CreateTag(repo.Path, tagName, id)
+}
