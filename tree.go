@@ -55,7 +55,7 @@ func (t *Tree) _walk(cb TreeWalkCallback, dirname string) bool {
 				if err != nil {
 					panic(err)
 				}
-				if t._walk(cb, path.Join(dirname, te.Name)) == false {
+				if t._walk(cb, path.Join(dirname, te.name)) == false {
 					return false
 				}
 			}

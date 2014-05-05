@@ -274,8 +274,6 @@ func readObjectBytes(path string, offset uint64, sizeonly bool) (ot ObjectType, 
 			return
 		}
 
-		//fmt.Println("xxx", id.String(), "xxx")
-
 		pos = pos + 20
 
 		var f *idxFile
@@ -377,8 +375,6 @@ func readObjectBytesF(path string, offset uint64, sizeonly bool) (ot ObjectType,
 		if err != nil {
 			return
 		}
-
-		//fmt.Println("xxx", id.String(), "xxx")
 
 		pos = pos + 20
 
