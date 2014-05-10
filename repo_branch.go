@@ -12,13 +12,39 @@ var (
 	ErrBranchExisted = errors.New("branch has existed")
 )
 
-func IsBranchExist(repoPath, branchName string) bool {
-	branchPath := filepath.Join(repoPath, "refs/heads", branchName)
+func (repo *Repository) IsBranchExist(branchName string) bool {
+	branchPath := filepath.Join(repo.Path, "refs/heads", branchName)
 	return isFile(branchPath)
 }
 
-func (repo *Repository) IsBranchExist(branchName string) bool {
-	return IsBranchExist(repo.Path, branchName)
+func (repo *Repository) GetBranches() ([]string, error) {
+	return repo.readRefDir("refs/heads", "")
+}
+
+func (repo *Repository) CreateBranch(branchName, idStr string) error {
+	return repo.createRef("heads", branchName, idStr)
+}
+
+func (repo *Repository) createRef(head, branchName, idStr string) error {
+	id, err := NewIdFromString(idStr)
+	if err != nil {
+		return err
+	}
+
+	branchPath := filepath.Join(repo.Path, "refs/"+head, branchName)
+	if isFile(branchPath) {
+		return ErrBranchExisted
+	}
+
+	f, err := os.Create(branchPath)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	_, err = io.WriteString(f, id.String())
+	return err
 }
 
 func (repo *Repository) readRefDir(prefix, relPath string) ([]string, error) {
@@ -54,26 +80,4 @@ func (repo *Repository) readRefDir(prefix, relPath string) ([]string, error) {
 	}
 
 	return names, nil
-}
-
-func CreateBranch(repoPath, branchName, id string) error {
-	return CreateRef("heads", repoPath, branchName, id)
-}
-
-func CreateRef(head, repoPath, branchName, id string) error {
-	branchPath := filepath.Join(repoPath, "refs/"+head, branchName)
-	if isFile(branchPath) {
-		return ErrBranchExisted
-	}
-	f, err := os.Create(branchPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = io.WriteString(f, id)
-	return err
-}
-
-func (repo *Repository) CreateBranch(branchName, id string) error {
-	return CreateBranch(repo.Path, branchName, id)
 }
