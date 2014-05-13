@@ -108,11 +108,18 @@ func (repo *Repository) CommitsCount(commitId string) (int, error) {
 	return repo.commitsCount(id)
 }
 
+func (repo *Repository) FileCommitsCount(branch, file string) (int, error) {
+	stdout, stderr, err := com.ExecCmdDir(repo.Path, "git", "rev-list", "--count",
+		branch, "--", file)
+	if err != nil {
+		return 0, errors.New(stderr)
+	}
+	return StrToInt(strings.TrimSpace(stdout))
+}
+
 func (repo *Repository) commitsCount(id sha1) (int, error) {
 	stdout, stderr, err := com.ExecCmdDir(repo.Path, "git", "rev-list", "--count", id.String())
 	if err != nil {
-		return 0, err
-	} else if len(stderr) > 0 {
 		return 0, errors.New(stderr)
 	}
 	return StrToInt(strings.TrimSpace(stdout))
@@ -250,8 +257,15 @@ func (repo *Repository) commitsByRange(id sha1, page int) (*list.List, error) {
 	stdout, stderr, err := com.ExecCmdDirBytes(repo.Path, "git", "log", id.String(),
 		"--skip="+IntToStr((page-1)*50), "--max-count=50", prettyLogFormat)
 	if err != nil {
-		return nil, err
-	} else if len(stderr) > 0 {
+		return nil, errors.New(string(stderr))
+	}
+	return parsePrettyFormatLog(repo, stdout)
+}
+
+func (repo *Repository) CommitsByFileAndRange(branch, file string, page int) (*list.List, error) {
+	stdout, stderr, err := com.ExecCmdDirBytes(repo.Path, "git", "log", branch,
+		"--skip="+IntToStr((page-1)*50), "--max-count=50", prettyLogFormat, "--", file)
+	if err != nil {
 		return nil, errors.New(string(stderr))
 	}
 	return parsePrettyFormatLog(repo, stdout)
