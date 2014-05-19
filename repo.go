@@ -52,7 +52,7 @@ func OpenRepository(path string) (*Repository, error) {
 		return nil, err
 	}
 	if !fm.IsDir() {
-		return nil, errors.New(fmt.Sprintf("%q is not a directory."))
+		return nil, errors.New(fmt.Sprintf("%q is not a directory.", fm.Name()))
 	}
 
 	indexfiles, err := filepath.Glob(filepath.Join(path, "objects/pack/*idx"))
