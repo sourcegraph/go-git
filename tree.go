@@ -2,6 +2,7 @@ package git
 
 import (
 	"errors"
+	"io/ioutil"
 	"path"
 	"strings"
 )
@@ -98,7 +99,17 @@ func (t *Tree) ListEntries() Entries {
 
 	t.entriesParsed = true
 
-	_, _, data, err := t.repo.getRawObject(t.Id)
+	_, _, dataRc, err := t.repo.getRawObject(t.Id, false)
+	if err != nil {
+		return nil
+	}
+
+	defer func() {
+		dataRc.Close()
+	}()
+
+	// TODO reader
+	data, err := ioutil.ReadAll(dataRc)
 	if err != nil {
 		return nil
 	}

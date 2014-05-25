@@ -3,6 +3,7 @@ package git
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 )
 
@@ -29,12 +30,7 @@ func (t ObjectType) String() string {
 	}
 }
 
-type Object struct {
-	Type ObjectType
-	Id   sha1
-}
-
-func (repo *Repository) getRawObject(id sha1) (ObjectType, int64, []byte, error) {
+func (repo *Repository) getRawObject(id sha1, metaOnly bool) (ObjectType, int64, io.ReadCloser, error) {
 	// first we need to find out where the commit is stored
 	sha1 := id.String()
 	objpath := filepathFromSHA1(repo.Path, sha1)
@@ -43,17 +39,17 @@ func (repo *Repository) getRawObject(id sha1) (ObjectType, int64, []byte, error)
 		// doesn't exist, let's look if we find the object somewhere else
 		for _, indexfile := range repo.indexfiles {
 			if offset := indexfile.offsetValues[id]; offset != 0 {
-				return readObjectBytes(indexfile.packpath, offset, false)
+				return readObjectBytes(indexfile.packpath, offset, metaOnly)
 			}
 		}
 		return 0, 0, nil, errors.New(fmt.Sprintf("Object not found %s", sha1))
 	}
-	return readObjectFile(objpath, false)
+	return readObjectFile(objpath, metaOnly)
 }
 
 // Get the type of an object.
-func (repo *Repository) Type(id sha1) (ObjectType, error) {
-	objtype, _, _, err := repo.getRawObject(id)
+func (repo *Repository) objectType(id sha1) (ObjectType, error) {
+	objtype, _, _, err := repo.getRawObject(id, true)
 	if err != nil {
 		return 0, err
 	}

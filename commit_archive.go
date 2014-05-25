@@ -63,13 +63,15 @@ func createArchive(tree *Tree, streamer cae.Streamer, relPaths ...string) error 
 				return err
 			}
 		} else {
-			data, err := te.Blob().Data()
+			dataRc, err := te.Blob().Data()
 			if err != nil {
 				return err
 			}
-			if err := streamer.StreamFile(relPath, te, data); err != nil {
+			if err := streamer.StreamReader(relPath, te, dataRc); err != nil {
+				dataRc.Close()
 				return err
 			}
+			dataRc.Close()
 		}
 	}
 
