@@ -234,7 +234,7 @@ func readObjectBytes(path string, offset uint64, sizeonly bool) (ot ObjectType, 
 	zpos := 0
 	// This is the length of the base object. Do we need to know it?
 	_, bytesRead := readerLittleEndianBase128Number(rc)
-	log.Println(zpos, bytesRead)
+	//log.Println(zpos, bytesRead)
 	zpos += bytesRead
 
 	resultObjectLength, bytesRead := readerLittleEndianBase128Number(rc)
