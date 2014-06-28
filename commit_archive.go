@@ -4,28 +4,43 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/Unknwon/cae"
+	"github.com/Unknwon/cae/tz"
 	"github.com/Unknwon/cae/zip"
 )
 
-func (c *Commit) CreateArchive(zipPath string) error {
-	f, err := os.OpenFile(zipPath, os.O_CREATE, 0644)
+type ArchiveType int
+
+const (
+	AT_ZIP ArchiveType = iota + 1
+	AT_TARGZ
+)
+
+func (c *Commit) CreateArchive(path string, archiveType ArchiveType) error {
+	f, err := os.OpenFile(path, os.O_CREATE, 0644)
 	if err == nil {
 		f.Close()
 	}
 
-	f, err = os.OpenFile(zipPath, os.O_WRONLY|os.O_TRUNC|os.O_EXCL, 0644)
+	f, err = os.OpenFile(path, os.O_WRONLY|os.O_TRUNC|os.O_EXCL, 0644)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	archive := zip.NewStreamArachive(f)
-	defer archive.Close()
+	var streamer cae.Streamer
+	switch archiveType {
+	case AT_ZIP:
+		streamer = zip.NewStreamArachive(f)
+	case AT_TARGZ:
+		streamer = tz.NewStreamArachive(f)
+	}
+	defer streamer.Close()
 
-	return createArchive(&c.Tree, archive)
+	return createArchive(&c.Tree, streamer)
 }
 
-func createArchive(tree *Tree, archive *zip.StreamArchive, relPaths ...string) error {
+func createArchive(tree *Tree, streamer cae.Streamer, relPaths ...string) error {
 	var relPath string
 
 	if len(relPaths) > 0 {
@@ -34,7 +49,7 @@ func createArchive(tree *Tree, archive *zip.StreamArchive, relPaths ...string) e
 
 	for _, te := range tree.ListEntries() {
 		if te.IsDir() {
-			err := archive.StreamFile(filepath.Join(relPath, te.name), te, nil)
+			err := streamer.StreamFile(filepath.Join(relPath, te.name), te, nil)
 			if err != nil {
 				return err
 			}
@@ -44,17 +59,19 @@ func createArchive(tree *Tree, archive *zip.StreamArchive, relPaths ...string) e
 				return err
 			}
 
-			if err = createArchive(newTree, archive, filepath.Join(relPath, te.name)); err != nil {
+			if err = createArchive(newTree, streamer, filepath.Join(relPath, te.name)); err != nil {
 				return err
 			}
 		} else {
-			data, err := te.Blob().Data()
+			dataRc, err := te.Blob().Data()
 			if err != nil {
 				return err
 			}
-			if err := archive.StreamFile(relPath, te, data); err != nil {
+			if err := streamer.StreamReader(relPath, te, dataRc); err != nil {
+				dataRc.Close()
 				return err
 			}
+			dataRc.Close()
 		}
 	}
 

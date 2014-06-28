@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var (
@@ -17,12 +18,42 @@ func IsBranchExist(repoPath, branchName string) bool {
 }
 
 func (repo *Repository) IsBranchExist(branchName string) bool {
-	return IsBranchExist(repo.Path, branchName)
+	branchPath := filepath.Join(repo.Path, "refs/heads", branchName)
+	return isFile(branchPath)
 }
 
-// GetBranches returns all branches of given repository.
 func (repo *Repository) GetBranches() ([]string, error) {
-	dirPath := filepath.Join(repo.Path, "refs/heads")
+	return repo.readRefDir("refs/heads", "")
+}
+
+func (repo *Repository) CreateBranch(branchName, idStr string) error {
+	return repo.createRef("heads", branchName, idStr)
+}
+
+func (repo *Repository) createRef(head, branchName, idStr string) error {
+	id, err := NewIdFromString(idStr)
+	if err != nil {
+		return err
+	}
+
+	branchPath := filepath.Join(repo.Path, "refs/"+head, branchName)
+	if isFile(branchPath) {
+		return ErrBranchExisted
+	}
+
+	f, err := os.Create(branchPath)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	_, err = io.WriteString(f, id.String())
+	return err
+}
+
+func (repo *Repository) readRefDir(prefix, relPath string) ([]string, error) {
+	dirPath := filepath.Join(repo.Path, prefix, relPath)
 	f, err := os.Open(dirPath)
 	if err != nil {
 		return nil, err
@@ -36,7 +67,21 @@ func (repo *Repository) GetBranches() ([]string, error) {
 
 	names := make([]string, 0, len(fis))
 	for _, fi := range fis {
-		names = append(names, fi.Name())
+		if strings.Contains(fi.Name(), ".DS_Store") {
+			continue
+		}
+
+		relFileName := filepath.Join(relPath, fi.Name())
+		if fi.IsDir() {
+			subnames, err := repo.readRefDir(prefix, relFileName)
+			if err != nil {
+				return nil, err
+			}
+			names = append(names, subnames...)
+			continue
+		}
+
+		names = append(names, relFileName)
 	}
 
 	return names, nil
@@ -58,8 +103,4 @@ func CreateRef(head, repoPath, branchName, id string) error {
 	defer f.Close()
 	_, err = io.WriteString(f, id)
 	return err
-}
-
-func (repo *Repository) CreateBranch(branchName, id string) error {
-	return CreateBranch(repo.Path, branchName, id)
 }
