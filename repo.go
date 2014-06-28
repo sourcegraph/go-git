@@ -37,6 +37,7 @@ type Repository struct {
 	indexfiles []*idxFile
 
 	commitCache map[sha1]*Commit
+	tagCache    map[sha1]*Tag
 }
 
 // Open the repository at the given path.
