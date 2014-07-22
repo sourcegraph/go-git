@@ -34,7 +34,7 @@ type idxFile struct {
 // commit, tree or blob, you do it from here.
 type Repository struct {
 	Path       string
-	indexfiles []*idxFile
+	indexfiles map[string]*idxFile
 
 	commitCache map[sha1]*Commit
 	tagCache    map[sha1]*Tag
@@ -60,13 +60,13 @@ func OpenRepository(path string) (*Repository, error) {
 	if err != nil {
 		return nil, err
 	}
-	repo.indexfiles = make([]*idxFile, len(indexfiles))
-	for i, indexfile := range indexfiles {
+	repo.indexfiles = make(map[string]*idxFile, len(indexfiles))
+	for _, indexfile := range indexfiles {
 		idx, err := readIdxFile(indexfile)
 		if err != nil {
 			return nil, err
 		}
-		repo.indexfiles[i] = idx
+		repo.indexfiles[indexfile] = idx
 	}
 
 	return repo, nil

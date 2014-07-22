@@ -113,7 +113,7 @@ func readLenInPackFile(buf []byte) (length int, advance int) {
 // non-delta object, the (inflated) bytes are just returned, if the object
 // is a deltafied-object, we have to apply the delta to base objects
 // before hand.
-func readObjectBytes(path string, offset uint64, sizeonly bool) (ot ObjectType, length int64, dataRc io.ReadCloser, err error) {
+func readObjectBytes(path string, indexfiles *map[string]*idxFile, offset uint64, sizeonly bool) (ot ObjectType, length int64, dataRc io.ReadCloser, err error) {
 	offsetInt := int64(offset)
 	file, err := os.Open(path)
 	if err != nil {
@@ -194,11 +194,7 @@ func readObjectBytes(path string, offset uint64, sizeonly bool) (ot ObjectType, 
 
 		pos = pos + 20
 
-		var f *idxFile
-		f, err = readIdxFile(path[0:len(path)-4] + "idx")
-		if err != nil {
-			return
-		}
+		f := (*indexfiles)[path[0:len(path)-4]+"idx"]
 		var ok bool
 		if baseObjectOffset, ok = f.offsetValues[id]; !ok {
 			log.Fatal("not implemented yet")
@@ -211,7 +207,7 @@ func readObjectBytes(path string, offset uint64, sizeonly bool) (ot ObjectType, 
 		base   []byte
 		baseRc io.ReadCloser
 	)
-	ot, _, baseRc, err = readObjectBytes(path, baseObjectOffset, false)
+	ot, _, baseRc, err = readObjectBytes(path, indexfiles, baseObjectOffset, false)
 	if err != nil {
 		return
 	}
