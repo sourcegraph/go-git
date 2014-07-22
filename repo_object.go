@@ -39,7 +39,7 @@ func (repo *Repository) getRawObject(id sha1, metaOnly bool) (ObjectType, int64,
 		// doesn't exist, let's look if we find the object somewhere else
 		for _, indexfile := range repo.indexfiles {
 			if offset := indexfile.offsetValues[id]; offset != 0 {
-				return readObjectBytes(indexfile.packpath, offset, metaOnly)
+				return readObjectBytes(indexfile.packpath, &repo.indexfiles, offset, metaOnly)
 			}
 		}
 		return 0, 0, nil, errors.New(fmt.Sprintf("Object not found %s", sha1))
@@ -67,7 +67,7 @@ func (repo *Repository) objectSize(id sha1) (int64, error) {
 		// doesn't exist, let's look if we find the object somewhere else
 		for _, indexfile := range repo.indexfiles {
 			if offset := indexfile.offsetValues[id]; offset != 0 {
-				_, length, _, err := readObjectBytes(indexfile.packpath, offset, true)
+				_, length, _, err := readObjectBytes(indexfile.packpath, &repo.indexfiles, offset, true)
 				return length, err
 			}
 		}
