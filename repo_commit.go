@@ -292,7 +292,7 @@ func (repo *Repository) GetCommitOfRelPath(commitId, relPath string) (*Commit, e
 }
 
 func (repo *Repository) getCommitOfRelPath(id sha1, relPath string) (*Commit, error) {
-	stdout, _, err := com.ExecCmdDir(repo.Path, "git", "log", "-1", "--pretty=format:%H", id.String(), "--", relPath)
+	stdout, _, err := com.ExecCmdDir(repo.Path, "git", "log", "-1", prettyLogFormat, id.String(), "--", relPath)
 	if err != nil {
 		return nil, err
 	}
