@@ -94,8 +94,10 @@ func (te *TreeEntry) Size() int64 {
 func (te *TreeEntry) Mode() (mode os.FileMode) {
 
 	switch te.mode {
-	case ModeBlob, ModeExec, ModeSymlink:
+	case ModeBlob, ModeSymlink:
 		mode = mode | 0644
+	case ModeExec:
+		fallthrough
 	default:
 		mode = mode | 0755
 	}
