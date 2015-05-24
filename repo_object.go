@@ -30,21 +30,62 @@ func (t ObjectType) String() string {
 	}
 }
 
-func (repo *Repository) getRawObject(id sha1, metaOnly bool) (ObjectType, int64, io.ReadCloser, error) {
-	// first we need to find out where the commit is stored
-	sha1 := id.String()
-	objpath := filepathFromSHA1(repo.Path, sha1)
-	_, err := os.Stat(objpath)
-	if os.IsNotExist(err) {
-		// doesn't exist, let's look if we find the object somewhere else
-		for _, indexfile := range repo.indexfiles {
-			if offset := indexfile.offsetValues[id]; offset != 0 {
-				return readObjectBytes(indexfile.packpath, &repo.indexfiles, offset, metaOnly)
-			}
+// Given a SHA1, find the pack it is in and the offset, or return nil if not
+// found.
+func (repo *Repository) findObjectPack(id sha1) (*idxFile, uint64) {
+	for _, indexfile := range repo.indexfiles {
+		if offset, ok := indexfile.offsetValues[id]; ok {
+			return indexfile, offset
 		}
-		return 0, 0, nil, errors.New(fmt.Sprintf("Object not found %s", sha1))
 	}
-	return readObjectFile(objpath, metaOnly)
+	return nil, 0
+}
+
+func (repo *Repository) HaveObject(idStr string) (found, packed bool, err error) {
+	id, err := NewIdFromString(idStr)
+	if err != nil {
+		return
+	}
+
+	return repo.haveObject(id)
+}
+
+func (repo *Repository) haveObject(id sha1) (found, packed bool, err error) {
+	sha1 := id.String()
+	_, err = os.Stat(filepathFromSHA1(repo.Path, sha1))
+	if err == nil {
+		found = true
+		return
+	} else if !os.IsNotExist(err) {
+		return
+	} else if os.IsNotExist(err) {
+		err = nil
+	}
+
+	pack, _ := repo.findObjectPack(id)
+	if pack == nil {
+		return
+	}
+	found, packed = true, true
+	return
+}
+
+func (repo *Repository) getRawObject(id sha1, metaOnly bool) (ObjectType, int64, io.ReadCloser, error) {
+	sha1 := id.String()
+	found, packed, err := repo.haveObject(id)
+	switch {
+	case err != nil:
+		return 0, 0, nil, err
+
+	case !found:
+		return 0, 0, nil, errors.New(fmt.Sprintf("Object not found %s", sha1))
+
+	case !packed:
+		return readObjectFile(filepathFromSHA1(repo.Path, sha1), metaOnly)
+	}
+
+	pack, offset := repo.findObjectPack(id)
+	return readObjectBytes(pack.packpath, &repo.indexfiles, offset, metaOnly)
 }
 
 // Get the type of an object.
@@ -58,22 +99,6 @@ func (repo *Repository) objectType(id sha1) (ObjectType, error) {
 
 // Get (inflated) size of an object.
 func (repo *Repository) objectSize(id sha1) (int64, error) {
-	sha1 := id.String()
-	// todo: this is mostly the same as getRawObject -> merge
-	// difference is the boolean in readObjectBytes and readObjectFile
-	objpath := filepathFromSHA1(repo.Path, sha1)
-	_, err := os.Stat(objpath)
-	if os.IsNotExist(err) {
-		// doesn't exist, let's look if we find the object somewhere else
-		for _, indexfile := range repo.indexfiles {
-			if offset := indexfile.offsetValues[id]; offset != 0 {
-				_, length, _, err := readObjectBytes(indexfile.packpath, &repo.indexfiles, offset, true)
-				return length, err
-			}
-		}
-
-		return 0, errors.New("Object not found")
-	}
-	_, length, _, err := readObjectFile(objpath, true)
+	_, length, _, err := repo.getRawObject(id, true)
 	return length, err
 }
