@@ -5,16 +5,12 @@ import (
 	"compress/zlib"
 	"errors"
 	"io"
-	"os"
 )
 
 var (
 	// ObjectReader implemented ReadCloser
 	_ io.ReadCloser = new(readCloser)
 	_ io.ReaderAt   = new(readAter)
-
-	tmpBufLen = int64(1024)
-	tmpBuf    = make([]byte, tmpBufLen)
 )
 
 type readCloser struct {
@@ -84,33 +80,7 @@ func readerDecompressed(r io.Reader, inflatedSize int64) (io.ReadCloser, error) 
 		return nil, err
 	}
 
-	return newReadCloser(readerLimit(zr, inflatedSize), zr), nil
-}
-
-func readerLimit(r io.Reader, limit int64) io.Reader {
-	return io.LimitReader(r, limit)
-}
-
-func readerSeek(r io.ReadSeeker, offset int64) int64 {
-	cur, _ := r.Seek(offset, os.SEEK_SET)
-	return cur
-}
-
-func readerSkip(r io.Reader, offset int64) (cnt int64) {
-	if offset > 0 {
-		for cnt < offset {
-			remain := offset - cnt
-			if remain > tmpBufLen {
-				remain = tmpBufLen
-			}
-			n, err := r.Read(tmpBuf[:remain])
-			if n == 0 || err != nil {
-				return
-			}
-			cnt += int64(n)
-		}
-	}
-	return cnt
+	return newReadCloser(io.LimitReader(zr, inflatedSize), zr), nil
 }
 
 // buf must be large enough to read the number.
