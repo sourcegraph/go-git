@@ -20,11 +20,11 @@ const (
 func (t ObjectType) String() string {
 	switch t {
 	case ObjectCommit:
-		return "Commit"
+		return "commit"
 	case ObjectTree:
-		return "Tree"
+		return "tree"
 	case ObjectBlob:
-		return "Blob"
+		return "blob"
 	default:
 		return ""
 	}
