@@ -2,7 +2,6 @@ package git
 
 import (
 	"errors"
-	"io/ioutil"
 	"path"
 	"strings"
 )
@@ -99,26 +98,22 @@ func (t *Tree) ListEntries() Entries {
 
 	t.entriesParsed = true
 
-	_, _, dataRc, err := t.repo.getRawObject(t.Id, false)
+	var entries Entries
+
+	scanner, err := t.Scanner()
 	if err != nil {
 		return nil
 	}
 
-	defer func() {
-		dataRc.Close()
-	}()
+	for scanner.Scan() {
+		entries = append(entries, scanner.TreeEntry())
+	}
 
-	// TODO reader
-	data, err := ioutil.ReadAll(dataRc)
-	if err != nil {
+	if err := scanner.Err(); err != nil {
 		return nil
 	}
 
-	t.entries, err = parseTreeData(t, data)
-	if err != nil {
-		return nil
-	}
-
+	t.entries = entries
 	return t.entries
 }
 
@@ -127,4 +122,12 @@ func NewTree(repo *Repository, id sha1) *Tree {
 	tree.Id = id
 	tree.repo = repo
 	return tree
+}
+
+func (t *Tree) Scanner() (*TreeScanner, error) {
+	_, _, r, err := t.repo.getRawObject(t.Id, false)
+	if err != nil {
+		return nil, err
+	}
+	return NewTreeScanner(t.Id, r), nil
 }
