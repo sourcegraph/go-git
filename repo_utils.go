@@ -164,7 +164,11 @@ func readObjectBytes(path string, indexfiles *map[string]*idxFile, offset uint64
 			return
 		}
 
-		readerSeek(file, offsetInt+pos)
+		_, err = file.Seek(offsetInt+pos, os.SEEK_SET)
+		if err != nil {
+			return
+		}
+
 		dataRc, err = readerDecompressed(file, length)
 		if err != nil {
 			return
@@ -221,7 +225,11 @@ func readObjectBytes(path string, indexfiles *map[string]*idxFile, offset uint64
 		return
 	}
 
-	readerSeek(file, offsetInt+pos)
+	_, err = file.Seek(offsetInt+pos, os.SEEK_SET)
+	if err != nil {
+		return
+	}
+
 	rc, err := readerDecompressed(file, length)
 	if err != nil {
 		return
@@ -324,14 +332,21 @@ func readObjectFile(path string, sizeonly bool) (ot ObjectType, length int64, da
 
 	objstart += spacePos + 1
 
-	readerSeek(f, 0)
+	_, err = f.Seek(0, os.SEEK_SET)
+	if err != nil {
+		return
+	}
 
 	rc, err := readerDecompressed(f, length+objstart)
 	if err != nil {
 		return
 	}
-	readerSkip(rc, objstart)
 
-	dataRc = newReadCloser(readerLimit(rc, length), rc)
+	_, err = io.Copy(ioutil.Discard, io.LimitReader(rc, objstart))
+	if err != nil {
+		return
+	}
+
+	dataRc = newReadCloser(io.LimitReader(rc, length), rc)
 	return
 }
