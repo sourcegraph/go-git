@@ -9,7 +9,7 @@ import (
 )
 
 type TreeScanner struct {
-	parent sha1
+	parent *Tree
 
 	*bufio.Scanner
 	closer io.Closer
@@ -18,7 +18,7 @@ type TreeScanner struct {
 	err       error
 }
 
-func NewTreeScanner(parent sha1, rc io.ReadCloser) *TreeScanner {
+func NewTreeScanner(parent *Tree, rc io.ReadCloser) *TreeScanner {
 	ts := &TreeScanner{
 		parent:  parent,
 		Scanner: bufio.NewScanner(rc),
@@ -52,10 +52,11 @@ func (t *TreeScanner) parse() error {
 	}
 
 	t.treeEntry = &TreeEntry{
-		name: name,
-		mode: entryMode,
-		Id:   id,
-		Type: objectType,
+		name:  name,
+		mode:  entryMode,
+		Id:    id,
+		Type:  objectType,
+		ptree: t.parent,
 	}
 
 	return nil

@@ -129,5 +129,5 @@ func (t *Tree) Scanner() (*TreeScanner, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewTreeScanner(t.Id, r), nil
+	return NewTreeScanner(t, r), nil
 }
