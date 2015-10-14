@@ -54,6 +54,9 @@ start:
 	allMatches := refRexp.FindAllStringSubmatch(string(f), 1)
 	if allMatches == nil {
 		// let's assume this is a sha1
+		if len(f) < 40 {
+			return "", errors.New("sha1 hash too short")
+		}
 		sha1 := string(f[:40])
 		if !IsSha1(sha1) {
 			return "", fmt.Errorf("heads file wrong sha1 string %s", sha1)
