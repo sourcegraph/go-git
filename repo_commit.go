@@ -1,10 +1,12 @@
 package git
 
 import (
+	"bufio"
 	"container/list"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -48,12 +50,18 @@ func (repo *Repository) getCommitIdOfRef(refpath string) (string, error) {
 start:
 	f, err := ioutil.ReadFile(filepath.Join(repo.Path, refpath))
 	if err != nil {
+		f, err = repo.getCommitIdOfPackedRef(refpath)
+	}
+	if err != nil {
 		return "", err
 	}
 
 	allMatches := refRexp.FindAllStringSubmatch(string(f), 1)
 	if allMatches == nil {
 		// let's assume this is a sha1
+		if len(f) < 40 {
+			return "", errors.New("sha1 hash too short")
+		}
 		sha1 := string(f[:40])
 		if !IsSha1(sha1) {
 			return "", fmt.Errorf("heads file wrong sha1 string %s", sha1)
@@ -63,6 +71,28 @@ start:
 	// yes, it's "ref: something". Now let's lookup "something"
 	refpath = allMatches[0][1]
 	goto start
+}
+
+func (repo *Repository) getCommitIdOfPackedRef(refpath string) ([]byte, error) {
+	f, err := os.Open(filepath.Join(repo.Path, "packed-refs"))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	scan := bufio.NewScanner(f)
+
+	for scan.Scan() {
+		if strings.Contains(scan.Text(), refpath) {
+			return scan.Bytes(), nil
+		}
+	}
+
+	if err := scan.Err(); err != nil {
+		return nil, err
+	}
+
+	return nil, errors.New("Ref not found in packed-refs")
 }
 
 // Find the commit object in the repository.
