@@ -1,8 +1,6 @@
 package git
 
-import (
-	"bytes"
-)
+import "bytes"
 
 // Parse commit information from the (uncompressed) raw
 // data from the commit object.
@@ -19,6 +17,11 @@ l:
 		case eol > 0:
 			line := data[nextline : nextline+eol]
 			spacepos := bytes.IndexByte(line, ' ')
+			if spacepos < 0 {
+				// XXX: What do here?
+				// return nil, fmt.Errorf("failed to parse commit data: %q", line)
+				break l
+			}
 			reftype := line[:spacepos]
 			switch string(reftype) {
 			case "tree":

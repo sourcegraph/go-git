@@ -8,9 +8,12 @@ import (
 
 var (
 	ErrNotExist = errors.New("error not exist")
+	SkipDir     = errors.New("skip this directory")
 )
 
-type TreeWalkCallback func(string, *TreeEntry) int
+// TreeWalkFunc is similar to path/filepath.WalkFunc, it will continue as long
+// as the returned error is nil.
+type TreeWalkFunc func(path string, te *TreeEntry, err error) error
 
 // A tree is a flat directory listing.
 type Tree struct {
@@ -28,42 +31,41 @@ type Tree struct {
 // children subtrees will be automatically loaded as required, and the
 // callback will be called once per blob with the current (relative) root
 // for the blob and the blob data itself.
-//
-// If the callback returns a positive value, the passed blob will be skipped
-// on the traversal (in pre mode). A negative value stops the walk.
-//
-// Walk will panic() if an error occurs
-func (t *Tree) walk(callback TreeWalkCallback) error {
-	t._walk(callback, "")
-	return nil
+func (t *Tree) Walk(walkFn TreeWalkFunc) error {
+	return t.walk("", walkFn)
 }
 
-func (t *Tree) _walk(cb TreeWalkCallback, dirname string) bool {
+func (t *Tree) walkSubtree(te *TreeEntry) (*Tree, error) {
+	commit, err := t.repo.getCommit(te.Id)
+	if err != nil {
+		return nil, err
+	}
+	return t.repo.getTree(commit.Id)
+}
+
+func (t *Tree) walk(dir string, walkFn TreeWalkFunc) error {
 	for _, te := range t.ListEntries() {
-		cont := cb(dirname, te)
-		switch {
-		case cont < 0:
-			return false
-		case cont == 0:
-			// descend if it is a tree
-			if te.Type == ObjectTree {
-				commit, err := t.repo.getCommit(te.Id)
-				if err != nil {
-					panic(err)
-				}
-				t, err := t.repo.getTree(commit.Id)
-				if err != nil {
-					panic(err)
-				}
-				if t._walk(cb, path.Join(dirname, te.name)) == false {
-					return false
-				}
+		var subErr error
+		var subTree *Tree
+
+		if te.Type == ObjectTree {
+			subTree, subErr = t.walkSubtree(te)
+		}
+		if err := walkFn(dir, te, subErr); err != nil {
+			if err == SkipDir {
+				continue
 			}
-		case cont > 0:
-			// do nothing, don't descend into the tree
+			return err
+		}
+
+		if subTree != nil {
+			// Descend
+			if err := subTree.walk(path.Join(dir, te.name), walkFn); err != nil {
+				return err
+			}
 		}
 	}
-	return true
+	return nil
 }
 
 func (t *Tree) SubTree(rpath string) (*Tree, error) {
