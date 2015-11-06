@@ -16,7 +16,11 @@ func TestBlob(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, e := range ci.ListEntries() {
+	entries, err := ci.ListEntries()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
 		rc, err := e.Blob().Data()
 		if err != nil {
 			t.Fatal(err)

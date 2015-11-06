@@ -46,8 +46,11 @@ func createArchive(tree *Tree, streamer cae.Streamer, relPaths ...string) error 
 	if len(relPaths) > 0 {
 		relPath = relPaths[0]
 	}
-
-	for _, te := range tree.ListEntries() {
+	entries, err := tree.ListEntries()
+	if err != nil {
+		return err
+	}
+	for _, te := range entries {
 		if te.IsDir() {
 			err := streamer.StreamFile(filepath.Join(relPath, te.name), te, nil)
 			if err != nil {

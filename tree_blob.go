@@ -15,7 +15,11 @@ func (t *Tree) GetTreeEntryByPath(rpath string) (*TreeEntry, error) {
 	tree := t
 	for i, name := range parts {
 		if i == len(parts)-1 {
-			for _, v := range tree.ListEntries() {
+			entries, err := tree.ListEntries()
+			if err != nil {
+				return nil, err
+			}
+			for _, v := range entries {
 				if v.name == name {
 					return v, nil
 				}

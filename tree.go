@@ -44,7 +44,12 @@ func (t *Tree) walkSubtree(te *TreeEntry) (*Tree, error) {
 }
 
 func (t *Tree) walk(dir string, walkFn TreeWalkFunc) error {
-	for _, te := range t.ListEntries() {
+	entries, err := t.ListEntries()
+	if err != nil {
+		return err
+	}
+
+	for _, te := range entries {
 		var subErr error
 		var subTree *Tree
 
@@ -93,9 +98,9 @@ func (t *Tree) SubTree(rpath string) (*Tree, error) {
 	return g, nil
 }
 
-func (t *Tree) ListEntries() Entries {
+func (t *Tree) ListEntries() (Entries, error) {
 	if t.entriesParsed {
-		return t.entries
+		return t.entries, nil
 	}
 
 	t.entriesParsed = true
@@ -104,7 +109,7 @@ func (t *Tree) ListEntries() Entries {
 
 	scanner, err := t.Scanner()
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	for scanner.Scan() {
@@ -112,11 +117,11 @@ func (t *Tree) ListEntries() Entries {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil
+		return nil, err
 	}
 
 	t.entries = entries
-	return t.entries
+	return t.entries, nil
 }
 
 func NewTree(repo *Repository, id sha1) *Tree {
