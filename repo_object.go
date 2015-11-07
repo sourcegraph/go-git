@@ -1,11 +1,17 @@
 package git
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
 )
+
+// ObjectNotFound error returned when a repo query is performed for an ID that does not exist.
+type ObjectNotFound sha1
+
+func (id ObjectNotFound) Error() string {
+	return fmt.Sprintf("object not found: %s", sha1(id))
+}
 
 // Who am I?
 type ObjectType int
@@ -78,7 +84,7 @@ func (repo *Repository) getRawObject(id sha1, metaOnly bool) (ObjectType, int64,
 		return 0, 0, nil, err
 
 	case !found:
-		return 0, 0, nil, errors.New(fmt.Sprintf("Object not found %s", sha1))
+		return 0, 0, nil, ObjectNotFound(id)
 
 	case !packed:
 		return readObjectFile(filepathFromSHA1(repo.Path, sha1), metaOnly)
