@@ -1,9 +1,12 @@
 package git
 
 import (
+	"os"
 	"path"
 	"strings"
 )
+
+var ErrNotExist = os.ErrNotExist
 
 func (t *Tree) GetTreeEntryByPath(rpath string) (*TreeEntry, error) {
 	if len(rpath) == 0 {

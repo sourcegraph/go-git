@@ -7,8 +7,7 @@ import (
 )
 
 var (
-	ErrNotExist = errors.New("error not exist")
-	SkipDir     = errors.New("skip this directory")
+	SkipDir = errors.New("skip this directory")
 )
 
 // TreeWalkFunc is similar to path/filepath.WalkFunc, it will continue as long
