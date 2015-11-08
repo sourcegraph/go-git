@@ -30,6 +30,17 @@ type idxFile struct {
 	offsetValues map[sha1]uint64
 }
 
+// IsNotFound returns whether the error is about failing to find an object (RefNotFound, ObjectNotFound, etc).
+func IsNotFound(err error) bool {
+	switch err.(type) {
+	case RefNotFound:
+		return true
+	case ObjectNotFound:
+		return true
+	}
+	return false
+}
+
 // A Repository is the base of all other actions. If you need to lookup a
 // commit, tree or blob, you do it from here.
 type Repository struct {

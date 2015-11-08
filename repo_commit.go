@@ -15,9 +15,16 @@ import (
 	"github.com/Unknwon/com"
 )
 
-var (
-	refRexp = regexp.MustCompile("ref: (.*)\n")
-)
+var refRexp = regexp.MustCompile("ref: (.*)\n")
+
+var ErrNoPackedRefs = errors.New("no packed-refs")
+
+// RefNotFound error returned when a commit is fetched by ref that is not found.
+type RefNotFound string
+
+func (err RefNotFound) Error() string {
+	return fmt.Sprintf("ref not found: %s", string(err))
+}
 
 // get branch's last commit or a special commit by id string
 func (repo *Repository) GetCommitOfBranch(branchName string) (*Commit, error) {
@@ -48,11 +55,18 @@ func (repo *Repository) GetCommitIdOfTag(tagName string) (string, error) {
 
 func (repo *Repository) getCommitIdOfRef(refpath string) (string, error) {
 start:
-	f, err := ioutil.ReadFile(filepath.Join(repo.Path, refpath))
-	if err != nil {
-		f, err = repo.getCommitIdOfPackedRef(refpath)
-	}
-	if err != nil {
+	path := filepath.Join(repo.Path, refpath)
+	f, err := ioutil.ReadFile(path)
+	if os.IsNotExist(err) {
+		// Check for packed ref
+		var packedErr error
+		f, packedErr = repo.getCommitIdOfPackedRef(refpath)
+		if packedErr == ErrNoPackedRefs {
+			return "", RefNotFound(refpath)
+		} else if packedErr != nil {
+			return "", packedErr
+		}
+	} else if err != nil {
 		return "", err
 	}
 
@@ -74,9 +88,10 @@ start:
 }
 
 func (repo *Repository) getCommitIdOfPackedRef(refpath string) ([]byte, error) {
-	f, err := os.Open(filepath.Join(repo.Path, "packed-refs"))
-	if err != nil {
-		return nil, err
+	path := filepath.Join(repo.Path, "packed-refs")
+	f, err := os.Open(path)
+	if err != nil && os.IsNotExist(err) {
+		return nil, ErrNoPackedRefs
 	}
 	defer f.Close()
 
@@ -92,7 +107,7 @@ func (repo *Repository) getCommitIdOfPackedRef(refpath string) ([]byte, error) {
 		return nil, err
 	}
 
-	return nil, errors.New("Ref not found in packed-refs")
+	return nil, RefNotFound(refpath)
 }
 
 // Find the commit object in the repository.
