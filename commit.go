@@ -47,10 +47,40 @@ func (c *Commit) ParentId(n int) (id sha1, err error) {
 	return c.parents[n], nil
 }
 
+// Return the parent ids.
+func (c *Commit) ParentIds() []sha1 {
+	return c.parents
+}
+
 // Return the number of parents of the commit. 0 if this is the
 // root commit, otherwise 1,2,...
 func (c *Commit) ParentCount() int {
 	return len(c.parents)
+}
+
+// IsAncestor returns whether commitId is an ancestor of this commit. False if it's the same commit.
+// Similar to `git merge-base --is-ancestor`.
+func (c *Commit) IsAncestor(commitId string) bool {
+	ancestorId, err := NewIdFromString(commitId)
+	if err != nil || ancestorId == c.Id {
+		return false
+	}
+	var id sha1
+	var ancestors []sha1
+
+	ancestors = append(ancestors, c.parents...)
+	for len(ancestors) > 0 {
+		id, ancestors = ancestors[0], ancestors[1:]
+		if id == ancestorId {
+			return true
+		}
+		cur, err := c.repo.GetCommit(id.String())
+		if err != nil {
+			return false
+		}
+		ancestors = append(ancestors, cur.parents...)
+	}
+	return false
 }
 
 // Return oid of the (root) tree of this commit.
