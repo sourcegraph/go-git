@@ -2,8 +2,11 @@ package git
 
 import (
 	"container/list"
+	"errors"
 	"strings"
 )
+
+var ErrDisjoint = errors.New("commit trees are disjoint")
 
 // Commit represents a git commit.
 type Commit struct {
@@ -58,29 +61,80 @@ func (c *Commit) ParentCount() int {
 	return len(c.parents)
 }
 
+// BehindAhead computes the number of commits are behind (missing) and ahead (extra) of commitId.
+// ErrDisjoint is returned when the two commits don't have a common ancestor,
+// and the length of the tree depth for each.
+//
+// BehindAhead will traverse the entire ancestry of this commit, then traversing
+// the ancestroy of the target commitId until a common ancestor is found.
+//
+// TODO: Use a bitmap index for reachability (https://github.com/shazow/go-git/issues/4)
+func (c *Commit) BehindAhead(commitId string) (behind int, ahead int, treeErr error) {
+	targetCommit, err := c.repo.GetCommit(commitId)
+	if err != nil {
+		return
+	}
+	targetId := targetCommit.Id
+	found := errors.New("found")
+	seen := map[sha1]int{}
+	err = c.Walk(func(path []*Commit, cur *Commit, err error) error {
+		seen[cur.Id] = len(path)
+		if cur.Id == targetId {
+			return found
+		}
+		return nil
+	})
+
+	if err == found {
+		ahead = seen[targetId]
+		return
+	}
+
+	// Seek a common ancestor
+	err = targetCommit.Walk(func(path []*Commit, cur *Commit, err error) error {
+		if n, ok := seen[cur.Id]; ok {
+			ahead = n
+			behind = len(path)
+			return found
+		}
+		seen[cur.Id] = len(path)
+		return nil
+	})
+
+	if err != found {
+		treeErr = ErrDisjoint
+	}
+
+	return
+}
+
 // IsAncestor returns whether commitId is an ancestor of this commit. False if it's the same commit.
 // Similar to `git merge-base --is-ancestor`.
+//
+// IsAncestor will traverse the ancestry of the current commit until it finds the target commitIt.
+//
+// TODO: Use a bitmap index for reachability (https://github.com/shazow/go-git/issues/4)
 func (c *Commit) IsAncestor(commitId string) bool {
 	ancestorId, err := NewIdFromString(commitId)
 	if err != nil || ancestorId == c.Id {
 		return false
 	}
-	var id sha1
-	var ancestors []sha1
 
-	ancestors = append(ancestors, c.parents...)
-	for len(ancestors) > 0 {
-		id, ancestors = ancestors[0], ancestors[1:]
-		if id == ancestorId {
-			return true
-		}
-		cur, err := c.repo.GetCommit(id.String())
+	found := errors.New("found")
+	err = c.Walk(func(path []*Commit, cur *Commit, err error) error {
 		if err != nil {
-			return false
+			// We're not expecting any errors.
+			return err
 		}
-		ancestors = append(ancestors, cur.parents...)
-	}
-	return false
+		// Check parents before traversing into them
+		for _, parent := range cur.parents {
+			if parent == ancestorId {
+				return found
+			}
+		}
+		return nil
+	})
+	return err == found
 }
 
 // Return oid of the (root) tree of this commit.

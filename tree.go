@@ -11,7 +11,8 @@ var (
 )
 
 // TreeWalkFunc is similar to path/filepath.WalkFunc, it will continue as long
-// as the returned error is nil.
+// as the returned error is nil. If SkipDir is returned, then that subtree will
+// be skipped.
 type TreeWalkFunc func(path string, te *TreeEntry, err error) error
 
 // A tree is a flat directory listing.
@@ -26,10 +27,8 @@ type Tree struct {
 	entriesParsed bool
 }
 
-// The entries will be traversed in the specified order,
-// children subtrees will be automatically loaded as required, and the
-// callback will be called once per blob with the current (relative) root
-// for the blob and the blob data itself.
+// The tree's directory heirarchy will be traversed recursively in breadth-first
+// order, walkFn will be called once for each entry.
 func (t *Tree) Walk(walkFn TreeWalkFunc) error {
 	return t.walk("", walkFn)
 }
