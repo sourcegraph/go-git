@@ -1,7 +1,6 @@
 package git
 
 import (
-	"container/list"
 	"errors"
 	"strings"
 )
@@ -140,32 +139,4 @@ func (c *Commit) IsAncestor(commitId string) bool {
 // Return oid of the (root) tree of this commit.
 func (c *Commit) TreeId() sha1 {
 	return c.Tree.Id
-}
-
-func (c *Commit) CommitsBefore() (*list.List, error) {
-	return c.repo.getCommitsBefore(c.Id)
-}
-
-func (c *Commit) CommitsBeforeUntil(commitId string) (*list.List, error) {
-	ec, err := c.repo.GetCommit(commitId)
-	if err != nil {
-		return nil, err
-	}
-	return c.repo.CommitsBetween(c, ec)
-}
-
-func (c *Commit) CommitsCount() (int, error) {
-	return c.repo.commitsCount(c.Id)
-}
-
-func (c *Commit) SearchCommits(keyword string) (*list.List, error) {
-	return c.repo.searchCommits(c.Id, keyword)
-}
-
-func (c *Commit) CommitsByRange(page int) (*list.List, error) {
-	return c.repo.commitsByRange(c.Id, page)
-}
-
-func (c *Commit) GetCommitOfRelPath(relPath string) (*Commit, error) {
-	return c.repo.getCommitOfRelPath(c.Id, relPath)
 }

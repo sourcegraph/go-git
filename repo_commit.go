@@ -11,8 +11,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-
-	"github.com/Unknwon/com"
 )
 
 var refRexp = regexp.MustCompile("ref: (.*)\n")
@@ -156,31 +154,6 @@ func (repo *Repository) getCommit(id sha1) (*Commit, error) {
 	return commit, nil
 }
 
-func (repo *Repository) CommitsCount(commitId string) (int, error) {
-	id, err := NewIdFromString(commitId)
-	if err != nil {
-		return 0, err
-	}
-	return repo.commitsCount(id)
-}
-
-func (repo *Repository) FileCommitsCount(branch, file string) (int, error) {
-	stdout, stderr, err := com.ExecCmdDir(repo.Path, "git", "rev-list", "--count",
-		branch, "--", file)
-	if err != nil {
-		return 0, errors.New(stderr)
-	}
-	return StrToInt(strings.TrimSpace(stdout))
-}
-
-func (repo *Repository) commitsCount(id sha1) (int, error) {
-	stdout, stderr, err := com.ExecCmdDir(repo.Path, "git", "rev-list", "--count", id.String())
-	if err != nil {
-		return 0, errors.New(stderr)
-	}
-	return StrToInt(strings.TrimSpace(stdout))
-}
-
 // used only for single tree, (]
 func (repo *Repository) CommitsBetween(last *Commit, before *Commit) (*list.List, error) {
 	l := list.New()
@@ -277,75 +250,4 @@ func (repo *Repository) commitsBefore(lock *sync.Mutex, l *list.List, parent *li
 	}
 
 	return nil
-}
-
-// SearchCommits searches commits in given commitId and keyword of repository.
-func (repo *Repository) SearchCommits(commitId, keyword string) (*list.List, error) {
-	id, err := NewIdFromString(commitId)
-	if err != nil {
-		return nil, err
-	}
-
-	return repo.searchCommits(id, keyword)
-}
-func (repo *Repository) searchCommits(id sha1, keyword string) (*list.List, error) {
-	stdout, stderr, err := com.ExecCmdDirBytes(repo.Path, "git", "log", id.String(), "-100",
-		"-i", "--grep="+keyword, prettyLogFormat)
-	if err != nil {
-		return nil, err
-	} else if len(stderr) > 0 {
-		return nil, errors.New(string(stderr))
-	}
-	return parsePrettyFormatLog(repo, stdout)
-}
-
-// GetCommitsByRange returns certain number of commits with given page of repository.
-func (repo *Repository) CommitsByRange(commitId string, page int) (*list.List, error) {
-	id, err := NewIdFromString(commitId)
-	if err != nil {
-		return nil, err
-	}
-
-	return repo.commitsByRange(id, page)
-}
-
-func (repo *Repository) commitsByRange(id sha1, page int) (*list.List, error) {
-	stdout, stderr, err := com.ExecCmdDirBytes(repo.Path, "git", "log", id.String(),
-		"--skip="+IntToStr((page-1)*50), "--max-count=50", prettyLogFormat)
-	if err != nil {
-		return nil, errors.New(string(stderr))
-	}
-	return parsePrettyFormatLog(repo, stdout)
-}
-
-func (repo *Repository) CommitsByFileAndRange(branch, file string, page int) (*list.List, error) {
-	stdout, stderr, err := com.ExecCmdDirBytes(repo.Path, "git", "log", branch,
-		"--skip="+IntToStr((page-1)*50), "--max-count=50", prettyLogFormat, "--", file)
-	if err != nil {
-		return nil, errors.New(string(stderr))
-	}
-	return parsePrettyFormatLog(repo, stdout)
-}
-
-func (repo *Repository) GetCommitOfRelPath(commitId, relPath string) (*Commit, error) {
-	id, err := NewIdFromString(commitId)
-	if err != nil {
-		return nil, err
-	}
-
-	return repo.getCommitOfRelPath(id, relPath)
-}
-
-func (repo *Repository) getCommitOfRelPath(id sha1, relPath string) (*Commit, error) {
-	stdout, _, err := com.ExecCmdDir(repo.Path, "git", "log", "-1", prettyLogFormat, id.String(), "--", relPath)
-	if err != nil {
-		return nil, err
-	}
-
-	id, err = NewIdFromString(string(stdout))
-	if err != nil {
-		return nil, err
-	}
-
-	return repo.getCommit(id)
 }
