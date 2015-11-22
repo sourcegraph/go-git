@@ -54,7 +54,8 @@ func (t *Tree) walk(dir string, walkFn TreeWalkFunc) error {
 		if te.Type == ObjectTree {
 			subTree, subErr = t.walkSubtree(te)
 		}
-		if err := walkFn(dir, te, subErr); err != nil {
+		d := path.Join(dir, te.name)
+		if err := walkFn(d, te, subErr); err != nil {
 			if err == SkipDir {
 				continue
 			}
@@ -63,7 +64,7 @@ func (t *Tree) walk(dir string, walkFn TreeWalkFunc) error {
 
 		if subTree != nil {
 			// Descend
-			if err := subTree.walk(path.Join(dir, te.name), walkFn); err != nil {
+			if err := subTree.walk(d, walkFn); err != nil {
 				return err
 			}
 		}
