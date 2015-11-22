@@ -45,6 +45,11 @@ achieved.
       repository locking).
 
 
+## Sponsors
+
+Work on this fork is sponsored by [Sourcegraph](https://sourcegraph.com/).
+
+
 ## License
 
 * *shazow/go-git* changes are released under Apache v2.
