@@ -115,3 +115,53 @@ func TestListEntriesCommit(t *testing.T) {
 		t.Errorf("got %q; want %q", got, expect)
 	}
 }
+
+func TestSubmodules(t *testing.T) {
+	r, err := OpenRepository("testdata/submodules/.git")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		Commit string
+		Expect []*Submodule
+	}{
+		{
+			Commit: "b0817c6a0ee0670a4f36e49b3d5bb90453359f12",
+			Expect: []*Submodule{
+				&Submodule{Name: "sub", Path: "sub", URL: "../test.git"},
+				&Submodule{Name: "sub2", Path: "sub2", URL: "../test2"},
+			},
+		},
+		{
+			Commit: "e1a2bf02b14c3db9193f17b872d3ddf48318a64b",
+			Expect: []*Submodule{
+				&Submodule{Name: "sub", Path: "sub", URL: "../test.git"},
+			},
+		},
+		{
+			Commit: "b3e93567fb6f97988eceeb8af2629a11dc47eea3",
+			Expect: nil,
+		},
+	}
+
+	for i, test := range tests {
+		ci, err := r.GetCommit(test.Commit)
+		got, err := ci.GetSubmodules()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !reflect.DeepEqual(got, test.Expect) {
+			t.Errorf("case %d: got %q; want %q", i, got, test.Expect)
+		}
+	}
+}
+
+func submoduleNames(subs []*Submodule) []string {
+	r := []string{}
+	for _, s := range subs {
+		r = append(r, s.Name)
+	}
+	return r
+}
