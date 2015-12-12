@@ -29,7 +29,7 @@ func listWalk(t Tree) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		p := filepath.Join(path, te.Name())
+		p := filepath.Join(path)
 		if te.IsDir() {
 			p += "/"
 		}
