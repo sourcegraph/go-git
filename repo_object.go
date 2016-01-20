@@ -22,12 +22,6 @@ const (
 	ObjectTag    ObjectType = 0x40
 )
 
-type Object struct {
-	Type ObjectType
-	Size int64
-	Data io.ReadCloser
-}
-
 func (t ObjectType) String() string {
 	switch t {
 	case ObjectCommit:
@@ -36,9 +30,17 @@ func (t ObjectType) String() string {
 		return "tree"
 	case ObjectBlob:
 		return "blob"
+	case ObjectTag:
+		return "tag"
 	default:
-		return ""
+		return "invalid"
 	}
+}
+
+type Object struct {
+	Type ObjectType
+	Size int64
+	Data io.ReadCloser
 }
 
 // Given a SHA1, find the pack it is in and the offset, or return nil if not
@@ -57,9 +59,9 @@ func (repo *Repository) Object(id ObjectID) (*Object, error) {
 }
 
 func (repo *Repository) getRawObject(id ObjectID, metaOnly bool) (*Object, error) {
-	ot, length, dataRc, err := readObjectFile(filepathFromSHA1(repo.Path, id.String()), metaOnly)
+	o, err := readObjectFile(filepathFromSHA1(repo.Path, id.String()), metaOnly)
 	if err == nil {
-		return &Object{ot, length, dataRc}, nil
+		return o, nil
 	}
 	if !os.IsNotExist(err) {
 		return nil, err
@@ -69,9 +71,9 @@ func (repo *Repository) getRawObject(id ObjectID, metaOnly bool) (*Object, error
 		return nil, ObjectNotFound(id)
 	}
 	pack, offset := repo.findObjectPack(id)
-	ot, length, data, err := readObjectBytes(pack.packpath, &repo.indexfiles, offset, metaOnly)
+	o, err = readObjectBytes(pack.packpath, &repo.indexfiles, offset, metaOnly)
 	if err != nil {
 		return nil, err
 	}
-	return &Object{ot, length, data}, nil
+	return o, nil
 }

@@ -111,11 +111,11 @@ func readLenInPackFile(buf []byte) (length int, advance int) {
 // non-delta object, the (inflated) bytes are just returned, if the object
 // is a deltafied-object, we have to apply the delta to base objects
 // before hand.
-func readObjectBytes(path string, indexfiles *map[string]*idxFile, offset uint64, sizeonly bool) (ot ObjectType, length int64, dataRc io.ReadCloser, err error) {
+func readObjectBytes(path string, indexfiles *map[string]*idxFile, offset uint64, sizeonly bool) (*Object, error) {
 	offsetInt := int64(offset)
 	file, err := os.Open(path)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	defer func() {
@@ -126,53 +126,44 @@ func readObjectBytes(path string, indexfiles *map[string]*idxFile, offset uint64
 		}
 	}()
 
-	pos, err := file.Seek(offsetInt, os.SEEK_SET)
-	if err != nil {
-		return
-	}
-
-	if pos != offsetInt {
-		err = errors.New("Seek went wrong")
-		return
+	if _, err := file.Seek(offsetInt, os.SEEK_SET); err != nil {
+		return nil, err
 	}
 
 	buf := make([]byte, 1024)
 	n, err := file.Read(buf)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	if n == 0 {
-		err = errors.New("Nothing read from pack file")
-		return
+		return nil, errors.New("Nothing read from pack file")
 	}
 
-	ot = ObjectType(buf[0] & 0x70)
+	typ := ObjectType(buf[0] & 0x70)
 
 	l, p := readLenInPackFile(buf)
-	pos = int64(p)
-	length = int64(l)
+	pos := int64(p)
+	size := int64(l)
 
 	var baseObjectOffset uint64
-	switch ot {
+	switch typ {
 	case ObjectCommit, ObjectTree, ObjectBlob, ObjectTag:
 		if sizeonly {
 			// if we are only interested in the size of the object,
 			// we don't need to do more expensive stuff
-			return
+			return &Object{typ, size, nil}, nil
 		}
 
-		_, err = file.Seek(offsetInt+pos, os.SEEK_SET)
-		if err != nil {
-			return
+		if _, err = file.Seek(offsetInt+pos, os.SEEK_SET); err != nil {
+			return nil, err
 		}
 
-		dataRc, err = readerDecompressed(file, length)
+		dataRc, err := readerDecompressed(file, size)
 		if err != nil {
-			return
+			return nil, err
 		}
-		return
-		// data, err = readCompressedDataFromFile(file, offsetInt+pos, length)
+		return &Object{typ, size, dataRc}, nil
 
 	case 0x60:
 		// DELTA_ENCODED object w/ offset to base
@@ -195,37 +186,32 @@ func readObjectBytes(path string, indexfiles *map[string]*idxFile, offset uint64
 		var ok bool
 		if baseObjectOffset, ok = f.offsetValues[id]; !ok {
 			log.Fatal("not implemented yet")
-			err = errors.New("base object is not exist")
-			return
+			return nil, errors.New("base object is not exist")
 		}
 	}
 
-	var (
-		base   []byte
-		baseRc io.ReadCloser
-	)
-	ot, _, baseRc, err = readObjectBytes(path, indexfiles, baseObjectOffset, false)
+	o, err := readObjectBytes(path, indexfiles, baseObjectOffset, false)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	defer func() {
-		baseRc.Close()
+		o.Data.Close()
 	}()
 
-	base, err = ioutil.ReadAll(baseRc)
+	base, err := ioutil.ReadAll(o.Data)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	_, err = file.Seek(offsetInt+pos, os.SEEK_SET)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	rc, err := readerDecompressed(file, length)
+	rc, err := readerDecompressed(file, size)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	zpos := 0
@@ -240,15 +226,14 @@ func readObjectBytes(path string, indexfiles *map[string]*idxFile, offset uint64
 	if sizeonly {
 		// if we are only interested in the size of the object,
 		// we don't need to do more expensive stuff
-		length = resultObjectLength
-		return
+		return &Object{typ, resultObjectLength, nil}, nil
 	}
 
 	br := &readAter{base}
 	data, err := readerApplyDelta(br, rc, resultObjectLength)
 
-	dataRc = newBufReadCloser(data)
-	return
+	dataRc := newBufReadCloser(data)
+	return &Object{typ, resultObjectLength, dataRc}, nil
 }
 
 // Return length as integer from zero terminated string
@@ -274,10 +259,10 @@ func getLengthZeroTerminated(b []byte) (int64, int64) {
 
 // Read the contents of the object file at path.
 // Return the content type, the contents of the file and error, if any
-func readObjectFile(path string, sizeonly bool) (ot ObjectType, length int64, dataRc io.ReadCloser, err error) {
+func readObjectFile(path string, sizeonly bool) (*Object, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	defer func() {
@@ -290,7 +275,7 @@ func readObjectFile(path string, sizeonly bool) (ot ObjectType, length int64, da
 
 	r, err := zlib.NewReader(f)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	firstBufferSize := int64(1024)
@@ -298,48 +283,46 @@ func readObjectFile(path string, sizeonly bool) (ot ObjectType, length int64, da
 	buf := make([]byte, firstBufferSize)
 	_, err = r.Read(buf)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	spacePos := int64(bytes.IndexByte(buf, ' '))
 
-	// "tree", "commit", "blob", ...
+	var typ ObjectType
 	switch string(buf[:spacePos]) {
 	case "blob":
-		ot = ObjectBlob
+		typ = ObjectBlob
 	case "tree":
-		ot = ObjectTree
+		typ = ObjectTree
 	case "commit":
-		ot = ObjectCommit
+		typ = ObjectCommit
 	case "tag":
-		ot = ObjectTag
+		typ = ObjectTag
 	}
 
-	// length starts at the position after the space
-	var objstart int64
-	length, objstart = getLengthZeroTerminated(buf[spacePos+1:])
+	length, objstart := getLengthZeroTerminated(buf[spacePos+1:])
 
 	if sizeonly {
-		return
+		return &Object{typ, length, nil}, nil
 	}
 
 	objstart += spacePos + 1
 
 	_, err = f.Seek(0, os.SEEK_SET)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	rc, err := readerDecompressed(f, length+objstart)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	_, err = io.Copy(ioutil.Discard, io.LimitReader(rc, objstart))
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	dataRc = newReadCloser(io.LimitReader(rc, length), rc)
-	return
+	dataRc := newReadCloser(io.LimitReader(rc, length), rc)
+	return &Object{typ, length, dataRc}, nil
 }
