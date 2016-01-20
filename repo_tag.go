@@ -56,10 +56,6 @@ func (repo *Repository) getTag(id ObjectID) (*Tag, error) {
 		return nil, err
 	}
 
-	defer func() {
-		o.Data.Close()
-	}()
-
 	// tag with only reference to commit
 	if o.Type == ObjectCommit {
 		tag := new(Tag)
@@ -77,13 +73,7 @@ func (repo *Repository) getTag(id ObjectID) (*Tag, error) {
 		return nil, errors.New("Expected tag type, read error.")
 	}
 
-	// TODO reader
-	data, err := ioutil.ReadAll(o.Data)
-	if err != nil {
-		return nil, err
-	}
-
-	tag, err := parseTagData(data)
+	tag, err := parseTagData(o.Data)
 	if err != nil {
 		return nil, err
 	}

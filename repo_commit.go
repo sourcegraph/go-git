@@ -127,17 +127,7 @@ func (repo *Repository) getCommit(id ObjectID) (*Commit, error) {
 		return nil, err
 	}
 
-	defer func() {
-		o.Data.Close()
-	}()
-
-	// TODO reader
-	data, err := ioutil.ReadAll(o.Data)
-	if err != nil {
-		return nil, err
-	}
-
-	commit, err := parseCommitData(data)
+	commit, err := parseCommitData(o.Data)
 	if err != nil {
 		return nil, err
 	}

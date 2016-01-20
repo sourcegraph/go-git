@@ -163,7 +163,12 @@ func readObjectBytes(path string, indexfiles *map[string]*idxFile, offset uint64
 		if err != nil {
 			return nil, err
 		}
-		return &Object{typ, size, dataRc}, nil
+		defer dataRc.Close()
+		data, err := ioutil.ReadAll(dataRc)
+		if err != nil {
+			return nil, err
+		}
+		return &Object{typ, size, data}, nil
 
 	case 0x60:
 		// DELTA_ENCODED object w/ offset to base
@@ -195,14 +200,7 @@ func readObjectBytes(path string, indexfiles *map[string]*idxFile, offset uint64
 		return nil, err
 	}
 
-	defer func() {
-		o.Data.Close()
-	}()
-
-	base, err := ioutil.ReadAll(o.Data)
-	if err != nil {
-		return nil, err
-	}
+	base := o.Data
 
 	_, err = file.Seek(offsetInt+pos, os.SEEK_SET)
 	if err != nil {
@@ -213,6 +211,7 @@ func readObjectBytes(path string, indexfiles *map[string]*idxFile, offset uint64
 	if err != nil {
 		return nil, err
 	}
+	defer rc.Close()
 
 	zpos := 0
 	// This is the length of the base object. Do we need to know it?
@@ -231,9 +230,10 @@ func readObjectBytes(path string, indexfiles *map[string]*idxFile, offset uint64
 
 	br := &readAter{base}
 	data, err := readerApplyDelta(br, rc, resultObjectLength)
-
-	dataRc := newBufReadCloser(data)
-	return &Object{typ, resultObjectLength, dataRc}, nil
+	if err != nil {
+		return nil, err
+	}
+	return &Object{typ, resultObjectLength, data}, nil
 }
 
 // Return length as integer from zero terminated string
@@ -317,12 +317,16 @@ func readObjectFile(path string, sizeonly bool) (*Object, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rc.Close()
 
 	_, err = io.Copy(ioutil.Discard, io.LimitReader(rc, objstart))
 	if err != nil {
 		return nil, err
 	}
 
-	dataRc := newReadCloser(io.LimitReader(rc, length), rc)
-	return &Object{typ, length, dataRc}, nil
+	data, err := ioutil.ReadAll(io.LimitReader(rc, length))
+	if err != nil {
+		return nil, err
+	}
+	return &Object{typ, length, data}, nil
 }

@@ -15,7 +15,7 @@ type Blob struct {
 	*TreeEntry
 }
 
-func (b *Blob) Data() (io.ReadCloser, error) {
+func (b *Blob) Data() ([]byte, error) {
 	o, err := b.ptree.repo.getRawObject(b.Id, false)
 	if err != nil {
 		return nil, err

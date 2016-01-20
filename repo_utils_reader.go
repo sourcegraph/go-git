@@ -1,7 +1,6 @@
 package git
 
 import (
-	"bytes"
 	"compress/zlib"
 	"errors"
 	"io"
@@ -28,24 +27,6 @@ func (o *readCloser) Close() error {
 
 func newReadCloser(r io.Reader, c io.Closer) io.ReadCloser {
 	return &readCloser{r, c}
-}
-
-type bufReadCloser struct {
-	r *bytes.Buffer
-}
-
-func (o *bufReadCloser) Read(p []byte) (n int, err error) {
-	return o.r.Read(p)
-}
-
-func (o *bufReadCloser) Close() error {
-	return nil
-}
-
-func newBufReadCloser(buf []byte) io.ReadCloser {
-	o := new(bufReadCloser)
-	o.r = bytes.NewBuffer(buf)
-	return o
 }
 
 type readAter struct {

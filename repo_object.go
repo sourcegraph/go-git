@@ -2,7 +2,6 @@ package git
 
 import (
 	"fmt"
-	"io"
 	"os"
 )
 
@@ -40,7 +39,7 @@ func (t ObjectType) String() string {
 type Object struct {
 	Type ObjectType
 	Size int64
-	Data io.ReadCloser
+	Data []byte
 }
 
 // Given a SHA1, find the pack it is in and the offset, or return nil if not

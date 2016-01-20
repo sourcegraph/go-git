@@ -1,7 +1,6 @@
 package git
 
 import (
-	"io/ioutil"
 	"testing"
 	"time"
 )
@@ -31,11 +30,7 @@ func testObject(t *testing.T, r *Repository, id string, content string) {
 	if o.Size != int64(len(content)) {
 		t.Error("wrong size")
 	}
-	data, err := ioutil.ReadAll(o.Data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(data) != content {
+	if string(o.Data) != content {
 		t.Error("wrong content")
 	}
 }

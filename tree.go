@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bytes"
 	"errors"
 	"path"
 	"strings"
@@ -135,5 +136,5 @@ func (t *Tree) Scanner() (*TreeScanner, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewTreeScanner(t, o.Data), nil
+	return NewTreeScanner(t, bytes.NewReader(o.Data)), nil
 }
