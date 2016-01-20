@@ -1,8 +1,12 @@
 package git
 
 import (
+	"bufio"
+	"compress/zlib"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"strconv"
 )
 
 // ObjectNotFound error returned when a repo query is performed for an ID that does not exist.
@@ -15,10 +19,12 @@ func (id ObjectNotFound) Error() string {
 type ObjectType int
 
 const (
-	ObjectCommit ObjectType = 0x10
-	ObjectTree   ObjectType = 0x20
-	ObjectBlob   ObjectType = 0x30
-	ObjectTag    ObjectType = 0x40
+	ObjectCommit   ObjectType = 0x10
+	ObjectTree                = 0x20
+	ObjectBlob                = 0x30
+	ObjectTag                 = 0x40
+	objectOfsDelta            = 0x60
+	objectRefDelta            = 0x70
 )
 
 func (t ObjectType) String() string {
@@ -38,7 +44,7 @@ func (t ObjectType) String() string {
 
 type Object struct {
 	Type ObjectType
-	Size int64
+	Size uint64
 	Data []byte
 }
 
@@ -58,7 +64,7 @@ func (repo *Repository) Object(id ObjectID) (*Object, error) {
 }
 
 func (repo *Repository) getRawObject(id ObjectID, metaOnly bool) (*Object, error) {
-	o, err := readObjectFile(filepathFromSHA1(repo.Path, id.String()), metaOnly)
+	o, err := readLooseObject(filepathFromSHA1(repo.Path, id.String()), metaOnly)
 	if err == nil {
 		return o, nil
 	}
@@ -66,13 +72,65 @@ func (repo *Repository) getRawObject(id ObjectID, metaOnly bool) (*Object, error
 		return nil, err
 	}
 
-	if pack, _ := repo.findObjectPack(id); pack == nil {
+	pack, offset := repo.findObjectPack(id)
+	if pack == nil {
 		return nil, ObjectNotFound(id)
 	}
-	pack, offset := repo.findObjectPack(id)
-	o, err = readObjectBytes(pack.packpath, &repo.indexfiles, offset, metaOnly)
+	o, err = repo.readObjectFromPack(pack.packpath, offset, metaOnly)
 	if err != nil {
 		return nil, err
 	}
 	return o, nil
+}
+
+func readLooseObject(path string, sizeonly bool) (*Object, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	zr, err := zlib.NewReader(f)
+	if err != nil {
+		return nil, err
+	}
+	defer zr.Close()
+
+	br := bufio.NewReader(zr)
+
+	typStr, err := br.ReadString(' ')
+	if err != nil {
+		return nil, err
+	}
+	var typ ObjectType
+	switch typStr[:len(typStr)-1] {
+	case "blob":
+		typ = ObjectBlob
+	case "tree":
+		typ = ObjectTree
+	case "commit":
+		typ = ObjectCommit
+	case "tag":
+		typ = ObjectTag
+	}
+
+	sizeStr, err := br.ReadString(0)
+	if err != nil {
+		return nil, err
+	}
+	size, err := strconv.ParseUint(sizeStr[:len(sizeStr)-1], 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	if sizeonly {
+		return &Object{typ, size, nil}, nil
+	}
+
+	data, err := ioutil.ReadAll(br)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Object{typ, size, data}, nil
 }

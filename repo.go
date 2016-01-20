@@ -1,18 +1,3 @@
-// Copyright 2014 The Gogs Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License"): you may
-// not use this file except in compliance with the License. You may obtain
-// a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-// License for the specific language governing permissions and limitations
-// under the License.
-
-// Package GoGits - Git is a pure Go implementation of Git manipulation.
 package git
 
 import (
@@ -22,7 +7,6 @@ import (
 	"path/filepath"
 )
 
-// idx-file
 type idxFile struct {
 	indexpath    string
 	packpath     string
@@ -30,19 +14,6 @@ type idxFile struct {
 	offsetValues map[ObjectID]uint64
 }
 
-// IsNotFound returns whether the error is about failing to find an object (RefNotFound, ObjectNotFound, etc).
-func IsNotFound(err error) bool {
-	switch err.(type) {
-	case RefNotFound:
-		return true
-	case ObjectNotFound:
-		return true
-	}
-	return false
-}
-
-// A Repository is the base of all other actions. If you need to lookup a
-// commit, tree or blob, you do it from here.
 type Repository struct {
 	Path       string
 	indexfiles map[string]*idxFile
@@ -51,7 +22,6 @@ type Repository struct {
 	tagCache    map[ObjectID]*Tag
 }
 
-// Open the repository at the given path.
 func OpenRepository(path string) (*Repository, error) {
 	repo := new(Repository)
 	path, err := filepath.Abs(path)

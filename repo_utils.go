@@ -1,12 +1,13 @@
 package git
 
 import (
+	"bufio"
 	"bytes"
 	"compress/zlib"
+	"encoding/binary"
 	"errors"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 )
@@ -84,249 +85,158 @@ func readIdxFile(path string) (*idxFile, error) {
 	return ifile, nil
 }
 
-// If the object is stored in its own file (i.e not in a pack file),
-// this function returns the full path to the object file.
-// It does not test if the file exists.
 func filepathFromSHA1(rootdir, id string) string {
 	return filepath.Join(rootdir, "objects", id[:2], id[2:])
 }
 
-// The object length in a packfile is a bit more difficult than
-// just reading the bytes. The first byte has the length in its
-// lowest four bits, and if bit 7 is set, it means 'more' bytes
-// will follow. These are added to the »left side« of the length
-func readLenInPackFile(buf []byte) (length int, advance int) {
-	advance = 0
-	shift := [...]byte{0, 4, 11, 18, 25, 32, 39, 46, 53, 60}
-	length = int(buf[advance] & 0x0F)
-	for buf[advance]&0x80 > 0 {
-		advance += 1
-		length += (int(buf[advance]&0x7F) << shift[advance])
-	}
-	advance++
-	return
-}
-
-// Read from a pack file (given by path) at position offset. If this is a
-// non-delta object, the (inflated) bytes are just returned, if the object
-// is a deltafied-object, we have to apply the delta to base objects
-// before hand.
-func readObjectBytes(path string, indexfiles *map[string]*idxFile, offset uint64, sizeonly bool) (*Object, error) {
+func (repo *Repository) readObjectFromPack(path string, offset uint64, sizeonly bool) (*Object, error) {
 	offsetInt := int64(offset)
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-
-	defer func() {
-		if err != nil || sizeonly {
-			if file != nil {
-				file.Close()
-			}
-		}
-	}()
+	defer file.Close()
 
 	if _, err := file.Seek(offsetInt, os.SEEK_SET); err != nil {
 		return nil, err
 	}
 
+	br := bufio.NewReader(file)
+
+	// x, err := binary.ReadUvarint(br)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
 	buf := make([]byte, 1024)
-	n, err := file.Read(buf)
+	_, err = br.Read(buf)
 	if err != nil {
 		return nil, err
 	}
 
-	if n == 0 {
-		return nil, errors.New("Nothing read from pack file")
-	}
+	x, pos := binary.Uvarint(buf)
+	typ := ObjectType(x & 0x70)
+	size := x&^0x7f>>3 + x&0xf
 
-	typ := ObjectType(buf[0] & 0x70)
-
-	l, p := readLenInPackFile(buf)
-	pos := int64(p)
-	size := int64(l)
-
-	var baseObjectOffset uint64
+	var base *Object
 	switch typ {
 	case ObjectCommit, ObjectTree, ObjectBlob, ObjectTag:
 		if sizeonly {
-			// if we are only interested in the size of the object,
-			// we don't need to do more expensive stuff
 			return &Object{typ, size, nil}, nil
 		}
 
-		if _, err = file.Seek(offsetInt+pos, os.SEEK_SET); err != nil {
+		if _, err = file.Seek(offsetInt+int64(pos), os.SEEK_SET); err != nil {
 			return nil, err
 		}
 
-		dataRc, err := readerDecompressed(file, size)
-		if err != nil {
-			return nil, err
-		}
-		defer dataRc.Close()
-		data, err := ioutil.ReadAll(dataRc)
+		data, err := readAndDecompress(file, size)
 		if err != nil {
 			return nil, err
 		}
 		return &Object{typ, size, data}, nil
 
-	case 0x60:
-		// DELTA_ENCODED object w/ offset to base
-		// Read the offset first, then calculate the starting point
-		// of the base object
-		num := int64(buf[pos]) & 0x7f
-		for buf[pos]&0x80 > 0 {
-			pos = pos + 1
-			num = ((num + 1) << 7) | int64(buf[pos]&0x7f)
+	case objectOfsDelta:
+		var offset int64
+		for {
+			offset |= int64(buf[pos] & 0x7f)
+			if buf[pos]&0x80 == 0 {
+				break
+			}
+			pos++
+			offset = (offset + 1) << 7
 		}
-		baseObjectOffset = uint64(offsetInt - num)
 		pos = pos + 1
+		base, err = repo.readObjectFromPack(path, uint64(offsetInt-offset), false)
+		if err != nil {
+			return nil, err
+		}
 
-	case 0x70:
-		// DELTA_ENCODED object w/ base BINARY_OBJID
-		id := ObjectID(buf[pos : pos+20])
+	case objectRefDelta:
+		base, err = repo.getRawObject(ObjectID(buf[pos:pos+20]), false)
+		if err != nil {
+			return nil, err
+		}
 		pos = pos + 20
 
-		f := (*indexfiles)[path[0:len(path)-4]+"idx"]
-		var ok bool
-		if baseObjectOffset, ok = f.offsetValues[id]; !ok {
-			log.Fatal("not implemented yet")
-			return nil, errors.New("base object is not exist")
-		}
+	default:
+		return nil, errors.New("unexpected type")
 	}
 
-	o, err := readObjectBytes(path, indexfiles, baseObjectOffset, false)
+	_, err = file.Seek(offsetInt+int64(pos), os.SEEK_SET)
 	if err != nil {
 		return nil, err
 	}
 
-	base := o.Data
-
-	_, err = file.Seek(offsetInt+pos, os.SEEK_SET)
+	d, err := readAndDecompress(file, size)
 	if err != nil {
 		return nil, err
 	}
 
-	rc, err := readerDecompressed(file, size)
-	if err != nil {
-		return nil, err
-	}
-	defer rc.Close()
-
-	zpos := 0
-	// This is the length of the base object. Do we need to know it?
-	_, bytesRead := readerLittleEndianBase128Number(rc)
-	//log.Println(zpos, bytesRead)
-	zpos += bytesRead
-
-	resultObjectLength, bytesRead := readerLittleEndianBase128Number(rc)
-	zpos += bytesRead
-
+	_, n := binary.Uvarint(d) // length of base object
+	d = d[n:]
+	resultObjectLength, n := binary.Uvarint(d)
+	d = d[n:]
 	if sizeonly {
-		// if we are only interested in the size of the object,
-		// we don't need to do more expensive stuff
 		return &Object{typ, resultObjectLength, nil}, nil
 	}
 
-	br := &readAter{base}
-	data, err := readerApplyDelta(br, rc, resultObjectLength)
+	data, err := applyDelta(base.Data, d, resultObjectLength)
 	if err != nil {
 		return nil, err
 	}
 	return &Object{typ, resultObjectLength, data}, nil
 }
 
-// Return length as integer from zero terminated string
-// and the beginning of the real object
-func getLengthZeroTerminated(b []byte) (int64, int64) {
-	i := 0
-	var pos int
-	for b[i] != 0 {
-		i++
+func applyDelta(base, delta []byte, resultLen uint64) ([]byte, error) {
+	res := make([]byte, resultLen)
+	insertPoint := res
+	for {
+		if len(delta) == 0 {
+			return res, nil
+		}
+		opcode := delta[0]
+		delta = delta[1:]
+
+		if opcode&0x80 == 0 {
+			// copy from delta
+			copy(insertPoint, delta[:opcode])
+			insertPoint = insertPoint[opcode:]
+			delta = delta[opcode:]
+			continue
+		}
+
+		// copy from base
+		readNum := func(len uint) uint64 {
+			var x uint64
+			for i := uint(0); i < len; i++ {
+				if opcode&(1<<i) != 0 {
+					x |= uint64(delta[0]) << (i * 8)
+					delta = delta[1:]
+				}
+			}
+			return x
+		}
+		_ = readNum
+		copyOffset := readNum(4)
+		copyLength := readNum(3)
+		if copyLength == 0 {
+			copyLength = 1 << 16
+		}
+		copy(insertPoint, base[copyOffset:copyOffset+copyLength])
+		insertPoint = insertPoint[copyLength:]
 	}
-	pos = i
-	i--
-	var length int64
-	var pow int64
-	pow = 1
-	for i >= 0 {
-		length = length + (int64(b[i])-48)*pow
-		pow = pow * 10
-		i--
-	}
-	return length, int64(pos) + 1
 }
 
-// Read the contents of the object file at path.
-// Return the content type, the contents of the file and error, if any
-func readObjectFile(path string, sizeonly bool) (*Object, error) {
-	f, err := os.Open(path)
+func readAndDecompress(r io.Reader, inflatedSize uint64) ([]byte, error) {
+	zr, err := zlib.NewReader(r)
 	if err != nil {
 		return nil, err
 	}
+	defer zr.Close()
 
-	defer func() {
-		if err != nil || sizeonly {
-			if f != nil {
-				f.Close()
-			}
-		}
-	}()
-
-	r, err := zlib.NewReader(f)
-	if err != nil {
+	buf := make([]byte, inflatedSize)
+	if _, err := io.ReadFull(zr, buf); err != nil {
 		return nil, err
 	}
-
-	firstBufferSize := int64(1024)
-
-	buf := make([]byte, firstBufferSize)
-	_, err = r.Read(buf)
-	if err != nil {
-		return nil, err
-	}
-
-	spacePos := int64(bytes.IndexByte(buf, ' '))
-
-	var typ ObjectType
-	switch string(buf[:spacePos]) {
-	case "blob":
-		typ = ObjectBlob
-	case "tree":
-		typ = ObjectTree
-	case "commit":
-		typ = ObjectCommit
-	case "tag":
-		typ = ObjectTag
-	}
-
-	length, objstart := getLengthZeroTerminated(buf[spacePos+1:])
-
-	if sizeonly {
-		return &Object{typ, length, nil}, nil
-	}
-
-	objstart += spacePos + 1
-
-	_, err = f.Seek(0, os.SEEK_SET)
-	if err != nil {
-		return nil, err
-	}
-
-	rc, err := readerDecompressed(f, length+objstart)
-	if err != nil {
-		return nil, err
-	}
-	defer rc.Close()
-
-	_, err = io.Copy(ioutil.Discard, io.LimitReader(rc, objstart))
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := ioutil.ReadAll(io.LimitReader(rc, length))
-	if err != nil {
-		return nil, err
-	}
-	return &Object{typ, length, data}, nil
+	return buf, nil
 }

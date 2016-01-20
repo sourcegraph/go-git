@@ -91,7 +91,7 @@ func (te *TreeEntry) Size() int64 {
 	}
 
 	te.sized = true
-	te.size = o.Size
+	te.size = int64(o.Size)
 	return te.size
 }
 

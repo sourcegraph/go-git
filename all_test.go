@@ -27,7 +27,7 @@ func testObject(t *testing.T, r *Repository, id string, content string) {
 	if o.Type != ObjectBlob {
 		t.Error("wrong type")
 	}
-	if o.Size != int64(len(content)) {
+	if o.Size != uint64(len(content)) {
 		t.Error("wrong size")
 	}
 	if string(o.Data) != content {
