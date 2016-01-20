@@ -164,7 +164,7 @@ func (repo *Repository) CommitsBetween(last *Commit, before *Commit) (*list.List
 	var err error
 	cur := last
 	for {
-		if cur.Id.Equal(before.Id) {
+		if cur.Id == before.Id {
 			break
 		}
 		l.PushBack(cur)
@@ -210,7 +210,7 @@ func (repo *Repository) commitsBefore(lock *sync.Mutex, l *list.List, parent *li
 		for {
 			if in == nil {
 				break
-			} else if in.Value.(*Commit).Id.Equal(commit.Id) {
+			} else if in.Value.(*Commit).Id == commit.Id {
 				//lock.Unlock()
 				return nil
 			} else {

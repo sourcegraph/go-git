@@ -24,36 +24,6 @@ func (s sha1) String() string {
 	return string(result)
 }
 
-// Return true if s has the same sha1 as caller.
-// Support 40-length-string, []byte, sha1
-func (id sha1) Equal(s2 interface{}) bool {
-	switch v := s2.(type) {
-	case string:
-		if len(v) != 40 {
-			return false
-		}
-		return v == id.String()
-	case []byte:
-		if len(v) != 20 {
-			return false
-		}
-		for i, v := range v {
-			if id[i] != v {
-				return false
-			}
-		}
-	case sha1:
-		for i, v := range v {
-			if id[i] != v {
-				return false
-			}
-		}
-	default:
-		return false
-	}
-	return true
-}
-
 func IsSha1(sha1 string) bool {
 	if len(sha1) != 40 {
 		return false
