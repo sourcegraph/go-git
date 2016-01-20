@@ -34,12 +34,7 @@ func (repo *Repository) GetTag(tagName string) (*Tag, error) {
 		return nil, err
 	}
 
-	id, err := NewIdFromString(string(d))
-	if err != nil {
-		return nil, err
-	}
-
-	tag, err := repo.getTag(id)
+	tag, err := repo.getTag(ObjectIDHex(string(d)))
 	if err != nil {
 		return nil, err
 	}
@@ -47,13 +42,13 @@ func (repo *Repository) GetTag(tagName string) (*Tag, error) {
 	return tag, nil
 }
 
-func (repo *Repository) getTag(id sha1) (*Tag, error) {
+func (repo *Repository) getTag(id ObjectID) (*Tag, error) {
 	if repo.tagCache != nil {
 		if c, ok := repo.tagCache[id]; ok {
 			return c, nil
 		}
 	} else {
-		repo.tagCache = make(map[sha1]*Tag, 10)
+		repo.tagCache = make(map[ObjectID]*Tag, 10)
 	}
 
 	o, err := repo.getRawObject(id, false)

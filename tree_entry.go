@@ -51,7 +51,7 @@ func (bs Entries) Sort() {
 }
 
 type TreeEntry struct {
-	Id   sha1
+	Id   ObjectID
 	Type ObjectType
 
 	mode EntryMode

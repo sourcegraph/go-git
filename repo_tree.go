@@ -1,17 +1,11 @@
 package git
 
-import ()
-
 // Find the tree object in the repository.
 func (repo *Repository) GetTree(idStr string) (*Tree, error) {
-	id, err := NewIdFromString(idStr)
-	if err != nil {
-		return nil, err
-	}
-	return repo.getTree(id)
+	return repo.getTree(ObjectIDHex(idStr))
 }
 
-func (repo *Repository) getTree(id sha1) (*Tree, error) {
+func (repo *Repository) getTree(id ObjectID) (*Tree, error) {
 	treePath := filepathFromSHA1(repo.Path, id.String())
 	if !isFile(treePath) {
 		m := false

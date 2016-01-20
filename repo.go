@@ -27,7 +27,7 @@ type idxFile struct {
 	indexpath    string
 	packpath     string
 	packversion  uint32
-	offsetValues map[sha1]uint64
+	offsetValues map[ObjectID]uint64
 }
 
 // IsNotFound returns whether the error is about failing to find an object (RefNotFound, ObjectNotFound, etc).
@@ -47,8 +47,8 @@ type Repository struct {
 	Path       string
 	indexfiles map[string]*idxFile
 
-	commitCache map[sha1]*Commit
-	tagCache    map[sha1]*Tag
+	commitCache map[ObjectID]*Commit
+	tagCache    map[ObjectID]*Tag
 }
 
 // Open the repository at the given path.

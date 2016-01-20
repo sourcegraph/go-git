@@ -41,7 +41,7 @@ func (t *TreeScanner) parse() error {
 	}
 
 	modeString, name := string(match[1]), string(match[2])
-	id := sha1(data[len(match[0]):])
+	id := ObjectID(data[len(match[0]):])
 
 	entryMode, objectType, err := ParseModeType(modeString)
 	if err != nil {

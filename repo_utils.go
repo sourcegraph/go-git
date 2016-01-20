@@ -31,10 +31,10 @@ func readIdxFile(path string) (*idxFile, error) {
 		pos += 4
 	}
 	numObjects := int(fanout[255])
-	ids := make([]sha1, numObjects)
+	ids := make([]ObjectID, numObjects)
 
 	for i := 0; i < numObjects; i++ {
-		ids[i] = sha1(idx[pos : pos+20])
+		ids[i] = ObjectID(idx[pos : pos+20])
 		pos = pos + 20
 	}
 	// skip crc32 and offsetValues4
@@ -50,7 +50,7 @@ func readIdxFile(path string) (*idxFile, error) {
 			pos = pos + 8
 		}
 	}
-	ifile.offsetValues = make(map[sha1]uint64, numObjects)
+	ifile.offsetValues = make(map[ObjectID]uint64, numObjects)
 	pos = 258*4 + 24*numObjects
 	for i := 0; i < numObjects; i++ {
 		offset := uint32(idx[pos])<<24 + uint32(idx[pos+1])<<16 + uint32(idx[pos+2])<<8 + uint32(idx[pos+3])
@@ -64,8 +64,8 @@ func readIdxFile(path string) (*idxFile, error) {
 		}
 		pos = pos + 4
 	}
-	// sha1Packfile := idx[pos : pos+20]
-	// sha1Index := idx[pos+21 : pos+40]
+	// ObjectIDPackfile := idx[pos : pos+20]
+	// ObjectIDIndex := idx[pos+21 : pos+40]
 	fi, err := os.Open(ifile.packpath)
 	if err != nil {
 		return nil, err
@@ -87,8 +87,8 @@ func readIdxFile(path string) (*idxFile, error) {
 // If the object is stored in its own file (i.e not in a pack file),
 // this function returns the full path to the object file.
 // It does not test if the file exists.
-func filepathFromSHA1(rootdir, sha1 string) string {
-	return filepath.Join(rootdir, "objects", sha1[:2], sha1[2:])
+func filepathFromSHA1(rootdir, id string) string {
+	return filepath.Join(rootdir, "objects", id[:2], id[2:])
 }
 
 // The object length in a packfile is a bit more difficult than
@@ -188,7 +188,7 @@ func readObjectBytes(path string, indexfiles *map[string]*idxFile, offset uint64
 
 	case 0x70:
 		// DELTA_ENCODED object w/ base BINARY_OBJID
-		id := sha1(buf[pos : pos+20])
+		id := ObjectID(buf[pos : pos+20])
 		pos = pos + 20
 
 		f := (*indexfiles)[path[0:len(path)-4]+"idx"]

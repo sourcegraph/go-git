@@ -17,7 +17,7 @@ type TreeWalkFunc func(path string, te *TreeEntry, err error) error
 
 // A tree is a flat directory listing.
 type Tree struct {
-	Id   sha1
+	Id   ObjectID
 	repo *Repository
 
 	// parent tree
@@ -123,7 +123,7 @@ func (t *Tree) ListEntries() (Entries, error) {
 	return t.entries, nil
 }
 
-func NewTree(repo *Repository, id sha1) *Tree {
+func NewTree(repo *Repository, id ObjectID) *Tree {
 	tree := new(Tree)
 	tree.Id = id
 	tree.repo = repo

@@ -7,10 +7,10 @@ import (
 )
 
 // ObjectNotFound error returned when a repo query is performed for an ID that does not exist.
-type ObjectNotFound sha1
+type ObjectNotFound ObjectID
 
 func (id ObjectNotFound) Error() string {
-	return fmt.Sprintf("object not found: %s", sha1(id))
+	return fmt.Sprintf("object not found: %s", ObjectID(id))
 }
 
 type ObjectType int
@@ -43,7 +43,7 @@ func (t ObjectType) String() string {
 
 // Given a SHA1, find the pack it is in and the offset, or return nil if not
 // found.
-func (repo *Repository) findObjectPack(id sha1) (*idxFile, uint64) {
+func (repo *Repository) findObjectPack(id ObjectID) (*idxFile, uint64) {
 	for _, indexfile := range repo.indexfiles {
 		if offset, ok := indexfile.offsetValues[id]; ok {
 			return indexfile, offset
@@ -52,7 +52,7 @@ func (repo *Repository) findObjectPack(id sha1) (*idxFile, uint64) {
 	return nil, 0
 }
 
-func (repo *Repository) getRawObject(id sha1, metaOnly bool) (*Object, error) {
+func (repo *Repository) getRawObject(id ObjectID, metaOnly bool) (*Object, error) {
 	ot, length, dataRc, err := readObjectFile(filepathFromSHA1(repo.Path, id.String()), metaOnly)
 	if err == nil {
 		return &Object{ot, length, dataRc}, nil

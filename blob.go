@@ -67,7 +67,7 @@ func StoreObjectSHA(
 	objectType ObjectType,
 	w io.Writer,
 	r io.ReadSeeker,
-) (sha1, error) {
+) (ObjectID, error) {
 
 	reader, err := PrependObjectHeader(objectType, r)
 	if err != nil {
@@ -87,7 +87,7 @@ func StoreObjectSHA(
 		return "", err
 	}
 
-	return sha1(hash.Sum(nil)), nil
+	return ObjectID(hash.Sum(nil)), nil
 }
 
 // Write an object into git's loose database.
@@ -96,7 +96,7 @@ func StoreObjectSHA(
 func (repo *Repository) StoreObjectLoose(
 	objectType ObjectType,
 	r io.ReadSeeker,
-) (sha1, error) {
+) (ObjectID, error) {
 	fd, err := ioutil.TempFile(filepath.Join(repo.Path, "objects"), ".gogit_")
 	if err != nil {
 		return "", fmt.Errorf("failed to make tmpfile: %v", err)
