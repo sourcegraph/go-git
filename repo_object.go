@@ -47,60 +47,20 @@ func (repo *Repository) findObjectPack(id sha1) (*idxFile, uint64) {
 	return nil, 0
 }
 
-func (repo *Repository) HaveObject(idStr string) (found, packed bool, err error) {
-	id, err := NewIdFromString(idStr)
-	if err != nil {
-		return
-	}
-
-	return repo.haveObject(id)
-}
-
-func (repo *Repository) haveObject(id sha1) (found, packed bool, err error) {
-	sha1 := id.String()
-	_, err = os.Stat(filepathFromSHA1(repo.Path, sha1))
-	if err == nil {
-		found = true
-		return
-	} else if !os.IsNotExist(err) {
-		return
-	} else if os.IsNotExist(err) {
-		err = nil
-	}
-
-	pack, _ := repo.findObjectPack(id)
-	if pack == nil {
-		return
-	}
-	found, packed = true, true
-	return
-}
-
 func (repo *Repository) getRawObject(id sha1, metaOnly bool) (ObjectType, int64, io.ReadCloser, error) {
-	sha1 := id.String()
-	found, packed, err := repo.haveObject(id)
-	switch {
-	case err != nil:
+	ot, length, dataRc, err := readObjectFile(filepathFromSHA1(repo.Path, id.String()), metaOnly)
+	if err == nil {
+		return ot, length, dataRc, nil
+	}
+	if !os.IsNotExist(err) {
 		return 0, 0, nil, err
-
-	case !found:
-		return 0, 0, nil, ObjectNotFound(id)
-
-	case !packed:
-		return readObjectFile(filepathFromSHA1(repo.Path, sha1), metaOnly)
 	}
 
+	if pack, _ := repo.findObjectPack(id); pack == nil {
+		return 0, 0, nil, ObjectNotFound(id)
+	}
 	pack, offset := repo.findObjectPack(id)
 	return readObjectBytes(pack.packpath, &repo.indexfiles, offset, metaOnly)
-}
-
-// Get the type of an object.
-func (repo *Repository) objectType(id sha1) (ObjectType, error) {
-	objtype, _, _, err := repo.getRawObject(id, true)
-	if err != nil {
-		return 0, err
-	}
-	return objtype, nil
 }
 
 // Get (inflated) size of an object.

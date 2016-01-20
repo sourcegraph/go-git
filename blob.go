@@ -90,39 +90,9 @@ func StoreObjectSHA(
 	return NewId(hash.Sum(nil))
 }
 
-// Returns true if the content in `io.ReadSeeker` is aleady present in the
-// object database. Leaves the initial seek position of `r` intact.
-func (repo *Repository) HaveObjectFromReadSeeker(
-	objectType ObjectType,
-	r io.ReadSeeker,
-) (found bool, id sha1, err error) {
-	initialPosition, err := r.Seek(0, os.SEEK_CUR)
-	if err != nil {
-		return false, [20]byte{}, err
-	}
-	defer func() {
-		_, err1 := r.Seek(initialPosition, os.SEEK_SET)
-		if err == nil && err1 != nil {
-			err = err1 // If there was no other error, send the seek error.
-		}
-	}()
-
-	id, err = StoreObjectSHA(objectType, ioutil.Discard, r)
-	if err != nil {
-		return false, [20]byte{}, err
-	}
-
-	found, _, err = repo.haveObject(id)
-	if err != nil {
-		return false, id, err
-	}
-	return found, id, err
-}
-
 // Write an object into git's loose database.
 // If the object already exists in the database, it is not overwritten, though
-// the compression is still performed. To avoid the compression, call
-// HaveObjectFromReader first, which is fast and just does the SHA.
+// the compression is still performed.
 func (repo *Repository) StoreObjectLoose(
 	objectType ObjectType,
 	r io.ReadSeeker,
