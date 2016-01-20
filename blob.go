@@ -16,11 +16,11 @@ type Blob struct {
 }
 
 func (b *Blob) Data() (io.ReadCloser, error) {
-	_, _, dataRc, err := b.ptree.repo.getRawObject(b.Id, false)
+	o, err := b.ptree.repo.getRawObject(b.Id, false)
 	if err != nil {
 		return nil, err
 	}
-	return dataRc, nil
+	return o.Data, nil
 }
 
 // Write `r` in git's compressed object format into `w`.

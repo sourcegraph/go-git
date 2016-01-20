@@ -56,17 +56,17 @@ func (repo *Repository) getTag(id sha1) (*Tag, error) {
 		repo.tagCache = make(map[sha1]*Tag, 10)
 	}
 
-	tp, _, dataRc, err := repo.getRawObject(id, false)
+	o, err := repo.getRawObject(id, false)
 	if err != nil {
 		return nil, err
 	}
 
 	defer func() {
-		dataRc.Close()
+		o.Data.Close()
 	}()
 
 	// tag with only reference to commit
-	if tp == ObjectCommit {
+	if o.Type == ObjectCommit {
 		tag := new(Tag)
 		tag.Id = id
 		tag.Object = id
@@ -78,12 +78,12 @@ func (repo *Repository) getTag(id sha1) (*Tag, error) {
 	}
 
 	// tag with message
-	if tp != ObjectTag {
+	if o.Type != ObjectTag {
 		return nil, errors.New("Expected tag type, read error.")
 	}
 
 	// TODO reader
-	data, err := ioutil.ReadAll(dataRc)
+	data, err := ioutil.ReadAll(o.Data)
 	if err != nil {
 		return nil, err
 	}

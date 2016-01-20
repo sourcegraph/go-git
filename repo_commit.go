@@ -127,17 +127,17 @@ func (repo *Repository) getCommit(id sha1) (*Commit, error) {
 		repo.commitCache = make(map[sha1]*Commit, 10)
 	}
 
-	_, _, dataRc, err := repo.getRawObject(id, false)
+	o, err := repo.getRawObject(id, false)
 	if err != nil {
 		return nil, err
 	}
 
 	defer func() {
-		dataRc.Close()
+		o.Data.Close()
 	}()
 
 	// TODO reader
-	data, err := ioutil.ReadAll(dataRc)
+	data, err := ioutil.ReadAll(o.Data)
 	if err != nil {
 		return nil, err
 	}

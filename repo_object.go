@@ -13,7 +13,6 @@ func (id ObjectNotFound) Error() string {
 	return fmt.Sprintf("object not found: %s", sha1(id))
 }
 
-// Who am I?
 type ObjectType int
 
 const (
@@ -22,6 +21,12 @@ const (
 	ObjectBlob   ObjectType = 0x30
 	ObjectTag    ObjectType = 0x40
 )
+
+type Object struct {
+	Type ObjectType
+	Size int64
+	Data io.ReadCloser
+}
 
 func (t ObjectType) String() string {
 	switch t {
@@ -47,24 +52,22 @@ func (repo *Repository) findObjectPack(id sha1) (*idxFile, uint64) {
 	return nil, 0
 }
 
-func (repo *Repository) getRawObject(id sha1, metaOnly bool) (ObjectType, int64, io.ReadCloser, error) {
+func (repo *Repository) getRawObject(id sha1, metaOnly bool) (*Object, error) {
 	ot, length, dataRc, err := readObjectFile(filepathFromSHA1(repo.Path, id.String()), metaOnly)
 	if err == nil {
-		return ot, length, dataRc, nil
+		return &Object{ot, length, dataRc}, nil
 	}
 	if !os.IsNotExist(err) {
-		return 0, 0, nil, err
+		return nil, err
 	}
 
 	if pack, _ := repo.findObjectPack(id); pack == nil {
-		return 0, 0, nil, ObjectNotFound(id)
+		return nil, ObjectNotFound(id)
 	}
 	pack, offset := repo.findObjectPack(id)
-	return readObjectBytes(pack.packpath, &repo.indexfiles, offset, metaOnly)
-}
-
-// Get (inflated) size of an object.
-func (repo *Repository) objectSize(id sha1) (int64, error) {
-	_, length, _, err := repo.getRawObject(id, true)
-	return length, err
+	ot, length, data, err := readObjectBytes(pack.packpath, &repo.indexfiles, offset, metaOnly)
+	if err != nil {
+		return nil, err
+	}
+	return &Object{ot, length, data}, nil
 }
