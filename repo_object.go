@@ -52,6 +52,10 @@ func (repo *Repository) findObjectPack(id ObjectID) (*idxFile, uint64) {
 	return nil, 0
 }
 
+func (repo *Repository) Object(id ObjectID) (*Object, error) {
+	return repo.getRawObject(id, false)
+}
+
 func (repo *Repository) getRawObject(id ObjectID, metaOnly bool) (*Object, error) {
 	ot, length, dataRc, err := readObjectFile(filepathFromSHA1(repo.Path, id.String()), metaOnly)
 	if err == nil {
