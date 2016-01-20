@@ -71,7 +71,7 @@ func StoreObjectSHA(
 
 	reader, err := PrependObjectHeader(objectType, r)
 	if err != nil {
-		return [20]byte{}, err
+		return "", err
 	}
 
 	hash := crypto.SHA1.New()
@@ -84,10 +84,10 @@ func StoreObjectSHA(
 	}
 
 	if err != nil {
-		return [20]byte{}, err
+		return "", err
 	}
 
-	return NewId(hash.Sum(nil))
+	return sha1(hash.Sum(nil)), nil
 }
 
 // Write an object into git's loose database.
@@ -99,13 +99,13 @@ func (repo *Repository) StoreObjectLoose(
 ) (sha1, error) {
 	fd, err := ioutil.TempFile(filepath.Join(repo.Path, "objects"), ".gogit_")
 	if err != nil {
-		return [20]byte{}, fmt.Errorf("failed to make tmpfile: %v", err)
+		return "", fmt.Errorf("failed to make tmpfile: %v", err)
 	}
 
 	id, err := StoreObjectSHA(objectType, fd, r)
 	if err != nil {
 		fd.Close()
-		return [20]byte{}, err
+		return "", err
 	}
 	fd.Close() // Not deferred, intentionally.
 
@@ -114,7 +114,7 @@ func (repo *Repository) StoreObjectLoose(
 		// Object already exists. Delete the temporary file.
 		err = os.Remove(fd.Name())
 		if err != nil {
-			return [20]byte{}, err
+			return "", err
 		}
 		return id, nil
 	}
@@ -122,12 +122,12 @@ func (repo *Repository) StoreObjectLoose(
 	err = os.Mkdir(filepath.Dir(objectPath), 0775)
 	if err != nil && !os.IsExist(err) {
 		// Failed to create the directory, and not because it already exists.
-		return [20]byte{}, err
+		return "", err
 	}
 
 	err = os.Rename(fd.Name(), objectPath)
 	if err != nil {
-		return [20]byte{}, err
+		return "", err
 	}
 
 	return id, nil

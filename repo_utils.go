@@ -34,9 +34,7 @@ func readIdxFile(path string) (*idxFile, error) {
 	ids := make([]sha1, numObjects)
 
 	for i := 0; i < numObjects; i++ {
-		for j := 0; j < 20; j++ {
-			ids[i][j] = idx[pos+j]
-		}
+		ids[i] = sha1(idx[pos : pos+20])
 		pos = pos + 20
 	}
 	// skip crc32 and offsetValues4
@@ -190,12 +188,7 @@ func readObjectBytes(path string, indexfiles *map[string]*idxFile, offset uint64
 
 	case 0x70:
 		// DELTA_ENCODED object w/ base BINARY_OBJID
-		var id sha1
-		id, err = NewId(buf[pos : pos+20])
-		if err != nil {
-			return
-		}
-
+		id := sha1(buf[pos : pos+20])
 		pos = pos + 20
 
 		f := (*indexfiles)[path[0:len(path)-4]+"idx"]

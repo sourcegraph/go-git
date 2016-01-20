@@ -11,7 +11,7 @@ var (
 	IdNotExist = errors.New("sha1 id not exist")
 )
 
-type sha1 [20]byte
+type sha1 string
 
 // Return string (hex) representation of the Oid
 func (s sha1) String() string {
@@ -49,18 +49,5 @@ func NewIdFromString(s string) (sha1, error) {
 		return id, err
 	}
 
-	return NewId(b)
-}
-
-// Create a new sha1 from a 20 byte slice.
-func NewId(b []byte) (sha1, error) {
-	var id sha1
-	if len(b) != 20 {
-		return id, errors.New("Length must be 20")
-	}
-
-	for i := 0; i < 20; i++ {
-		id[i] = b[i]
-	}
-	return id, nil
+	return sha1(b), nil
 }
