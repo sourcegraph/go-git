@@ -103,88 +103,100 @@ func (repo *Repository) readObjectFromPack(path string, offset uint64, sizeonly 
 
 	br := bufio.NewReader(file)
 
-	// x, err := binary.ReadUvarint(br)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	buf := make([]byte, 1024)
-	_, err = br.Read(buf)
+	x, err := binary.ReadUvarint(br)
 	if err != nil {
 		return nil, err
 	}
-
-	x, pos := binary.Uvarint(buf)
 	typ := ObjectType(x & 0x70)
 	size := x&^0x7f>>3 + x&0xf
 
-	var base *Object
 	switch typ {
 	case ObjectCommit, ObjectTree, ObjectBlob, ObjectTag:
 		if sizeonly {
 			return &Object{typ, size, nil}, nil
 		}
 
-		if _, err = file.Seek(offsetInt+int64(pos), os.SEEK_SET); err != nil {
-			return nil, err
-		}
-
-		data, err := readAndDecompress(file, size)
+		data, err := readAndDecompress(br, size)
 		if err != nil {
 			return nil, err
 		}
 		return &Object{typ, size, data}, nil
 
-	case objectOfsDelta:
-		var offset int64
-		for {
-			offset |= int64(buf[pos] & 0x7f)
-			if buf[pos]&0x80 == 0 {
-				break
+	case objectOfsDelta, objectRefDelta:
+		var base *Object
+		switch typ {
+		case objectOfsDelta:
+			relOffset, err := readOffset(br)
+			if err != nil {
+				return nil, err
 			}
-			pos++
-			offset = (offset + 1) << 7
+			base, err = repo.readObjectFromPack(path, uint64(offsetInt-relOffset), false)
+			if err != nil {
+				return nil, err
+			}
+
+		case objectRefDelta:
+			id := make([]byte, 20)
+			if _, err := io.ReadFull(br, id); err != nil {
+				return nil, err
+			}
+			base, err = repo.getRawObject(ObjectID(id), false)
+			if err != nil {
+				return nil, err
+			}
 		}
-		pos = pos + 1
-		base, err = repo.readObjectFromPack(path, uint64(offsetInt-offset), false)
+
+		d, err := readAndDecompress(br, size)
 		if err != nil {
 			return nil, err
 		}
 
-	case objectRefDelta:
-		base, err = repo.getRawObject(ObjectID(buf[pos:pos+20]), false)
+		_, n := binary.Uvarint(d) // length of base object
+		d = d[n:]
+		resultObjectLength, n := binary.Uvarint(d)
+		d = d[n:]
+		if sizeonly {
+			return &Object{typ, resultObjectLength, nil}, nil
+		}
+
+		data, err := applyDelta(base.Data, d, resultObjectLength)
 		if err != nil {
 			return nil, err
 		}
-		pos = pos + 20
+		return &Object{typ, resultObjectLength, data}, nil
 
 	default:
 		return nil, errors.New("unexpected type")
 	}
+}
 
-	_, err = file.Seek(offsetInt+int64(pos), os.SEEK_SET)
+func readOffset(r io.ByteReader) (int64, error) {
+	var offset int64
+	for {
+		b, err := r.ReadByte()
+		if err != nil {
+			return 0, err
+		}
+		offset |= int64(b & 0x7f)
+		if b&0x80 == 0 {
+			return offset, nil
+		}
+		offset = (offset + 1) << 7
+	}
+}
+
+func readAndDecompress(r io.Reader, inflatedSize uint64) ([]byte, error) {
+	zr, err := zlib.NewReader(r)
 	if err != nil {
 		return nil, err
 	}
+	defer zr.Close()
 
-	d, err := readAndDecompress(file, size)
-	if err != nil {
+	buf := make([]byte, inflatedSize)
+	if _, err := io.ReadFull(zr, buf); err != nil {
 		return nil, err
 	}
-
-	_, n := binary.Uvarint(d) // length of base object
-	d = d[n:]
-	resultObjectLength, n := binary.Uvarint(d)
-	d = d[n:]
-	if sizeonly {
-		return &Object{typ, resultObjectLength, nil}, nil
-	}
-
-	data, err := applyDelta(base.Data, d, resultObjectLength)
-	if err != nil {
-		return nil, err
-	}
-	return &Object{typ, resultObjectLength, data}, nil
+	return buf, nil
 }
 
 func applyDelta(base, delta []byte, resultLen uint64) ([]byte, error) {
@@ -225,18 +237,4 @@ func applyDelta(base, delta []byte, resultLen uint64) ([]byte, error) {
 		copy(insertPoint, base[copyOffset:copyOffset+copyLength])
 		insertPoint = insertPoint[copyLength:]
 	}
-}
-
-func readAndDecompress(r io.Reader, inflatedSize uint64) ([]byte, error) {
-	zr, err := zlib.NewReader(r)
-	if err != nil {
-		return nil, err
-	}
-	defer zr.Close()
-
-	buf := make([]byte, inflatedSize)
-	if _, err := io.ReadFull(zr, buf); err != nil {
-		return nil, err
-	}
-	return buf, nil
 }
