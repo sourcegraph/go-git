@@ -122,7 +122,7 @@ func (repo *Repository) getCommit(id ObjectID) (*Commit, error) {
 		repo.commitCache = make(map[ObjectID]*Commit, 10)
 	}
 
-	o, err := repo.getRawObject(id, false)
+	o, err := repo.object(id, false)
 	if err != nil {
 		return nil, err
 	}

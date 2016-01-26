@@ -51,7 +51,7 @@ func (repo *Repository) getTag(id ObjectID) (*Tag, error) {
 		repo.tagCache = make(map[ObjectID]*Tag, 10)
 	}
 
-	o, err := repo.getRawObject(id, false)
+	o, err := repo.object(id, false)
 	if err != nil {
 		return nil, err
 	}

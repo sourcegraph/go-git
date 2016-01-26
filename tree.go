@@ -132,7 +132,7 @@ func NewTree(repo *Repository, id ObjectID) *Tree {
 }
 
 func (t *Tree) Scanner() (*TreeScanner, error) {
-	o, err := t.repo.getRawObject(t.Id, false)
+	o, err := t.repo.object(t.Id, false)
 	if err != nil {
 		return nil, err
 	}

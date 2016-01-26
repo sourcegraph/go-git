@@ -1,53 +1,51 @@
 package git
 
 import (
-	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-type idxFile struct {
-	indexpath    string
-	packpath     string
-	packversion  uint32
-	offsetValues map[ObjectID]uint64
-}
-
 type Repository struct {
-	Path       string
-	indexfiles map[string]*idxFile
+	Path  string
+	packs []*pack
 
 	commitCache map[ObjectID]*Commit
 	tagCache    map[ObjectID]*Tag
 }
 
 func OpenRepository(path string) (*Repository, error) {
-	repo := new(Repository)
+	repo := &Repository{
+		Path: path,
+	}
 	path, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
 	}
-	repo.Path = path
 	fm, err := os.Stat(path)
 	if err != nil {
 		return nil, err
 	}
 	if !fm.IsDir() {
-		return nil, errors.New(fmt.Sprintf("%q is not a directory.", fm.Name()))
+		return nil, fmt.Errorf("%q is not a directory.", fm.Name())
 	}
 
-	indexfiles, err := filepath.Glob(filepath.Join(path, "objects/pack/*idx"))
+	packDir := filepath.Join(path, "objects", "pack")
+	infos, err := ioutil.ReadDir(packDir)
 	if err != nil {
 		return nil, err
 	}
-	repo.indexfiles = make(map[string]*idxFile, len(indexfiles))
-	for _, indexfile := range indexfiles {
-		idx, err := readIdxFile(indexfile)
-		if err != nil {
-			return nil, err
+	for _, info := range infos {
+		if !strings.HasSuffix(info.Name(), ".pack") {
+			continue
 		}
-		repo.indexfiles[indexfile] = idx
+
+		repo.packs = append(repo.packs, &pack{
+			repo: repo,
+			id:   info.Name()[:len(info.Name())-5],
+		})
 	}
 
 	return repo, nil

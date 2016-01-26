@@ -85,7 +85,7 @@ func (te *TreeEntry) Size() int64 {
 		return te.size
 	}
 
-	o, err := te.ptree.repo.getRawObject(te.Id, true)
+	o, err := te.ptree.repo.object(te.Id, true)
 	if err != nil {
 		return 0
 	}

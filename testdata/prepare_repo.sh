@@ -26,5 +26,12 @@ git commit-tree -m "test commit 2" -p 8b61789a76de9edaa49b2529d3aaa302ba238c0b a
 
 git update-ref refs/heads/master 40b7c29973f5ff265a241f29c8154fa05594454f
 
+set +x
+for i in `seq 1 1000`; do
+  obj=`echo -n $i | git hash-object -w --stdin`
+  git update-index --add --cacheinfo 100644 $obj $i.txt
+done
+set -x
+
 git repack
 git prune-packed
