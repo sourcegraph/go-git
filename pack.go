@@ -170,14 +170,14 @@ func (p *pack) objectAtOffset(offset uint64, metaOnly bool) (*Object, error) {
 		resultObjectLength, n := binary.Uvarint(d)
 		d = d[n:]
 		if metaOnly {
-			return &Object{typ, resultObjectLength, nil}, nil
+			return &Object{base.Type, resultObjectLength, nil}, nil
 		}
 
 		data, err := applyDelta(base.Data, d, resultObjectLength)
 		if err != nil {
 			return nil, err
 		}
-		return &Object{typ, resultObjectLength, data}, nil
+		return &Object{base.Type, resultObjectLength, data}, nil
 
 	default:
 		return nil, errors.New("unexpected type")
@@ -257,10 +257,11 @@ func applyDelta(base, delta []byte, resultLen uint64) ([]byte, error) {
 		readNum := func(len uint) uint64 {
 			var x uint64
 			for i := uint(0); i < len; i++ {
-				if opcode&(1<<i) != 0 {
+				if opcode&1 != 0 {
 					x |= uint64(delta[0]) << (i * 8)
 					delta = delta[1:]
 				}
+				opcode >>= 1
 			}
 			return x
 		}
