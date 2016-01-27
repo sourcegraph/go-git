@@ -53,14 +53,18 @@ func (p *pack) packFileReader() (io.ReaderAt, error) {
 	return p.packFile, nil
 }
 
-func (p *pack) Close() error {
+func (p *pack) Close() (err error) {
 	if p.indexFile != nil {
-		p.indexFile.Close()
+		if thisErr := p.indexFile.Close(); thisErr != nil && err == nil {
+			err = thisErr
+		}
 	}
 	if p.packFile != nil {
-		p.packFile.Close()
+		if thisErr := p.packFile.Close(); thisErr != nil && err == nil {
+			err = thisErr
+		}
 	}
-	return nil
+	return
 }
 
 func (p *pack) object(id ObjectID, metaOnly bool) (*Object, error) {

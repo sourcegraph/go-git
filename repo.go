@@ -50,3 +50,12 @@ func OpenRepository(path string) (*Repository, error) {
 
 	return repo, nil
 }
+
+func (r *Repository) Close() (err error) {
+	for _, p := range r.packs {
+		if thisErr := p.Close(); thisErr != nil && err == nil {
+			err = thisErr
+		}
+	}
+	return nil
+}
