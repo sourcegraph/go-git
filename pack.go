@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 )
@@ -105,17 +106,12 @@ func (p *pack) object(id ObjectID, metaOnly bool) (*Object, error) {
 }
 
 func (p *pack) objectAtOffset(offset uint64, metaOnly bool) (*Object, error) {
-	file, err := os.Open(filepath.Join(p.repo.Path, "objects", "pack", p.id+".pack"))
+	r, err := p.packFileReader()
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
 
-	if _, err := file.Seek(int64(offset), os.SEEK_SET); err != nil {
-		return nil, err
-	}
-
-	br := bufio.NewReader(file)
+	br := bufio.NewReader(io.NewSectionReader(r, int64(offset), math.MaxInt64-int64(offset))) // avoid overflow
 
 	x, err := binary.ReadUvarint(br)
 	if err != nil {
