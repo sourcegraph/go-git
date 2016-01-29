@@ -72,10 +72,10 @@ func TestCommit(t *testing.T) {
 	if c.TreeId() != ObjectIDHex("095a057d4a651ec412d06b59e32e9b02871592d5") {
 		t.Error("wrong tree")
 	}
-	if c.Author.Name != "Test Author" || c.Author.Email != "author@example.com" || c.Author.When.Format(time.RFC1123Z) != "Thu, 07 Apr 2005 22:13:13 +0200" {
+	if c.Author.Name != "Test Author" || c.Author.Email != "author@example.com" || !c.Author.When.Equal(parseTimestamp("Thu, 07 Apr 2005 22:13:13 +0200")) {
 		t.Error("wrong author")
 	}
-	if c.Committer.Name != "Test Committer" || c.Committer.Email != "committer@example.com" || c.Committer.When.Format(time.RFC1123Z) != "Thu, 07 Apr 2005 22:13:14 +0200" {
+	if c.Committer.Name != "Test Committer" || c.Committer.Email != "committer@example.com" || !c.Committer.When.Equal(parseTimestamp("Thu, 07 Apr 2005 22:13:14 +0200")) {
 		t.Error("wrong committer")
 	}
 }
@@ -89,4 +89,12 @@ func TestBranch(t *testing.T) {
 	if c.Id != ObjectIDHex("40b7c29973f5ff265a241f29c8154fa05594454f") {
 		t.Error("wrong commit")
 	}
+}
+
+func parseTimestamp(s string) time.Time {
+	t, err := time.Parse(time.RFC1123Z, s)
+	if err != nil {
+		panic(err)
+	}
+	return t
 }
