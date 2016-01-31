@@ -97,7 +97,7 @@ func (repo *Repository) getCommitIdOfPackedRef(refpath string) ([]byte, error) {
 
 	for scan.Scan() {
 		if strings.Contains(scan.Text(), refpath) {
-			return scan.Bytes(), nil
+			return []byte(scan.Text()), nil
 		}
 	}
 
