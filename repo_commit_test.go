@@ -1,35 +1,25 @@
 package git
 
-import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"testing"
-)
+import "testing"
 
 func Test_Repository_getCommitIdOfPackedRef(t *testing.T) {
 	tests := []struct {
-		packedRefs  string
+		testRepo    string
 		refPath     string
 		expCommitID string
 		expError    error
 	}{{
-		packedRefs: `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa refs/tags/master
-`,
-		refPath:     "refs/tags/master",
-		expCommitID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}, {
-		packedRefs: `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa refs/tags/master-123
-`,
+		testRepo: "repo2",
 		refPath:  "refs/tags/master",
 		expError: RefNotFound("refs/tags/master"),
+	}, {
+		testRepo:    "repo3",
+		refPath:     "refs/tags/master",
+		expCommitID: "8b61789a76de9edaa49b2529d3aaa302ba238c0b",
 	}}
 	for _, test := range tests {
 		func() {
-			repoDir := tmpRepoDir(t, test.packedRefs)
-			defer os.RemoveAll(repoDir)
-
-			r := &Repository{Path: repoDir}
+			r := openTestRepo(t, test.testRepo)
 			commitID, err := r.getCommitIdOfPackedRef(test.refPath)
 			if string(commitID) != test.expCommitID {
 				t.Errorf("expected commit %q, got %q", test.expCommitID, string(commitID))
@@ -39,15 +29,4 @@ func Test_Repository_getCommitIdOfPackedRef(t *testing.T) {
 			}
 		}()
 	}
-}
-
-func tmpRepoDir(t *testing.T, packedRefs string) string {
-	d, err := ioutil.TempDir("", "Test_Repository_getCommitIdOfPackedRef")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := ioutil.WriteFile(filepath.Join(d, "packed-refs"), []byte(packedRefs), os.FileMode(0777)); err != nil {
-		t.Fatal(err)
-	}
-	return d
 }
