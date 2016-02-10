@@ -119,16 +119,16 @@ type packedRef struct {
 // returns the parsed ref in the first case and an error in all other
 // cases.
 func parseRefLine(line string) (packedRef, error) {
-	parseErr := fmt.Errorf("could not parse ref from line %q", line)
+	errParse := fmt.Errorf("could not parse ref from line %q", line)
 	fields := strings.Fields(line)
 	if len(fields) != 2 {
-		return packedRef{}, parseErr
+		return packedRef{}, errParse
 	}
 	if len(fields[0]) != 40 {
-		return packedRef{}, parseErr
+		return packedRef{}, errParse
 	}
 	if !strings.HasPrefix(fields[1], "refs/") {
-		return packedRef{}, parseErr
+		return packedRef{}, errParse
 	}
 	return packedRef{commit: fields[0], refpath: fields[1]}, nil
 }
