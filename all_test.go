@@ -1,12 +1,13 @@
 package git
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
 
-func openTestRepo(t *testing.T) *Repository {
-	r, err := OpenRepository("testdata/repo")
+func openTestRepo(t *testing.T, name string) *Repository {
+	r, err := OpenRepository(fmt.Sprintf("testdata/%s", name))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -14,7 +15,7 @@ func openTestRepo(t *testing.T) *Repository {
 }
 
 func TestObject(t *testing.T) {
-	r := openTestRepo(t)
+	r := openTestRepo(t, "repo")
 	testObject(t, r, "30d74d258442c7c65512eafab474568dd706c430", "test")
 	testObject(t, r, "d76bde4f5d1ed609dc82d8cd7d216d893830f1c9", "test unpacked")
 }
@@ -36,7 +37,7 @@ func testObject(t *testing.T, r *Repository, id string, content string) {
 }
 
 func TestTree(t *testing.T) {
-	r := openTestRepo(t)
+	r := openTestRepo(t, "repo")
 	tree := NewTree(r, ObjectIDHex("095a057d4a651ec412d06b59e32e9b02871592d5"))
 	entries, err := tree.ListEntries()
 	if err != nil {
@@ -61,7 +62,7 @@ func TestTree(t *testing.T) {
 }
 
 func TestCommit(t *testing.T) {
-	r := openTestRepo(t)
+	r := openTestRepo(t, "repo")
 	c, err := r.GetCommit("8b61789a76de9edaa49b2529d3aaa302ba238c0b")
 	if err != nil {
 		t.Fatal(err)
@@ -81,7 +82,7 @@ func TestCommit(t *testing.T) {
 }
 
 func TestBranch(t *testing.T) {
-	r := openTestRepo(t)
+	r := openTestRepo(t, "repo")
 	c, err := r.GetCommitOfBranch("master")
 	if err != nil {
 		t.Fatal(err)
