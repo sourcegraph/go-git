@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bufio"
 	"errors"
 	"io"
 	"os"
@@ -23,7 +24,7 @@ func (repo *Repository) IsBranchExist(branchName string) bool {
 }
 
 func (repo *Repository) GetBranches() ([]string, error) {
-	return repo.readRefDir("refs/heads", "")
+	return repo.readRefDir("refs/heads", "", true)
 }
 
 func (repo *Repository) CreateBranch(branchName, idStr string) error {
@@ -46,8 +47,7 @@ func (repo *Repository) createRef(head, branchName, idStr string) error {
 	_, err = io.WriteString(f, idStr)
 	return err
 }
-
-func (repo *Repository) readRefDir(prefix, relPath string) ([]string, error) {
+func (repo *Repository) readRefDir(prefix, relPath string, checkPackedRef bool) ([]string, error) {
 	dirPath := filepath.Join(repo.Path, prefix, relPath)
 	f, err := os.Open(dirPath)
 	if err != nil {
@@ -60,7 +60,7 @@ func (repo *Repository) readRefDir(prefix, relPath string) ([]string, error) {
 		return nil, err
 	}
 
-	names := make([]string, 0, len(fis))
+	names := make([]string, 0)
 	for _, fi := range fis {
 		if strings.Contains(fi.Name(), ".DS_Store") {
 			continue
@@ -68,7 +68,7 @@ func (repo *Repository) readRefDir(prefix, relPath string) ([]string, error) {
 
 		relFileName := filepath.Join(relPath, fi.Name())
 		if fi.IsDir() {
-			subnames, err := repo.readRefDir(prefix, relFileName)
+			subnames, err := repo.readRefDir(prefix, relFileName, false)
 			if err != nil {
 				return nil, err
 			}
@@ -79,7 +79,52 @@ func (repo *Repository) readRefDir(prefix, relPath string) ([]string, error) {
 		names = append(names, relFileName)
 	}
 
+	if checkPackedRef {
+		unpacked := make(map[string]bool)
+		for _, name := range names {
+			unpacked[name] = true
+		}
+		packed, err := repo.readPackedRefs(prefix, relPath)
+		if err != nil {
+			return names, nil
+		}
+		for _, packedName := range packed {
+			if !unpacked[packedName] {
+				names = append(names, packedName)
+				unpacked[packedName] = true
+			}
+		}
+	}
+
 	return names, nil
+}
+
+func (repo *Repository) readPackedRefs(prefix, relPath string) ([]string, error) {
+	path := filepath.Join(repo.Path, "packed-refs")
+	f, err := os.Open(path)
+	if err != nil && os.IsNotExist(err) {
+		return nil, ErrNoPackedRefs
+	}
+	defer f.Close()
+
+	scan := bufio.NewScanner(f)
+	refs := make([]string, 0)
+	refpath := filepath.Join(prefix, relPath)
+	for scan.Scan() {
+		if line := scan.Text(); strings.Contains(line, refpath) {
+			relFileName, err := filepath.Rel(prefix, line[41:])
+			if err != nil {
+				continue
+			}
+			refs = append(refs, relFileName)
+		}
+	}
+
+	if err := scan.Err(); err != nil {
+		return nil, err
+	}
+
+	return refs, nil
 }
 
 func CreateBranch(repoPath, branchName, id string) error {
