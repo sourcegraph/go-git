@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Unknwon/cae"
-	"github.com/Unknwon/cae/tz"
-	"github.com/Unknwon/cae/zip"
+	"github.com/unknwon/cae"
+	"github.com/unknwon/cae/tz"
+	"github.com/unknwon/cae/zip"
 )
 
 type ArchiveType int
